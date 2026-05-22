@@ -21,12 +21,13 @@ PAYLOAD=$(printf '{"clearMock":%s}' "$CLEAR_MOCK")
 TMP=$(mktemp -t fw-reset.XXXXXX)
 trap 'rm -f "$TMP"' EXIT
 
-HTTP_CODE=$(curl -sf -o "$TMP" -w "%{http_code}" -X POST \
+HTTP_CODE=$(curl -s -o "$TMP" -w "%{http_code}" -X POST \
   "http://127.0.0.1:$PORT/reset" \
   -H 'content-type: application/json' \
-  -d "$PAYLOAD") || { echo "ERR: SDK unreachable at 127.0.0.1:$PORT" >&2; exit 70; }
+  -d "$PAYLOAD") || HTTP_CODE="000"
 
 case "$HTTP_CODE" in
   200) cat "$TMP"; echo;;
+  000) echo "ERR: SDK unreachable at 127.0.0.1:$PORT" >&2; exit 70;;
   *)   echo "ERR: /reset returned $HTTP_CODE" >&2; cat "$TMP" >&2; exit 71;;
 esac

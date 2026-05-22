@@ -53,13 +53,14 @@ esac
 TMP=$(mktemp -t fw-mock.XXXXXX)
 trap 'rm -f "$TMP"' EXIT
 
-HTTP_CODE=$(curl -sf -o "$TMP" -w "%{http_code}" -X POST \
+HTTP_CODE=$(curl -s -o "$TMP" -w "%{http_code}" -X POST \
   "http://127.0.0.1:$PORT/mock" \
   -H 'content-type: application/json' \
-  -d "$PAYLOAD") || { echo "ERR: SDK unreachable at 127.0.0.1:$PORT" >&2; exit 56; }
+  -d "$PAYLOAD") || HTTP_CODE="000"
 
 case "$HTTP_CODE" in
   200) cat "$TMP"; echo;;
+  000) echo "ERR: SDK unreachable at 127.0.0.1:$PORT" >&2; exit 56;;
   501) echo "ERR: no MockDataProvider configured (call FlutterVisualLoop.start(mockProvider:...))" >&2; cat "$TMP" >&2; exit 55;;
   *)   echo "ERR: /mock returned $HTTP_CODE" >&2; cat "$TMP" >&2; exit 56;;
 esac

@@ -32,13 +32,14 @@ PAYLOAD=$(printf '{"route":"%s","args":%s,"popUntilRoot":%s}' "$ROUTE" "$ARGS" "
 TMP=$(mktemp -t fw-goto.XXXXXX)
 trap 'rm -f "$TMP"' EXIT
 
-HTTP_CODE=$(curl -sf -o "$TMP" -w "%{http_code}" -X POST \
+HTTP_CODE=$(curl -s -o "$TMP" -w "%{http_code}" -X POST \
   "http://127.0.0.1:$PORT/navigate" \
   -H 'content-type: application/json' \
-  -d "$PAYLOAD") || { echo "ERR: SDK unreachable at 127.0.0.1:$PORT" >&2; exit 43; }
+  -d "$PAYLOAD") || HTTP_CODE="000"
 
 case "$HTTP_CODE" in
   200) cat "$TMP"; echo;;
+  000) echo "ERR: SDK unreachable at 127.0.0.1:$PORT" >&2; exit 43;;
   503) echo "ERR: navigator not ready (app not mounted yet?)" >&2; cat "$TMP" >&2; exit 41;;
   500) echo "ERR: push failed (route '$ROUTE' not in onGenerateRoute? args type mismatch?)" >&2; cat "$TMP" >&2; exit 42;;
   *)   echo "ERR: /navigate returned $HTTP_CODE" >&2; cat "$TMP" >&2; exit 43;;
