@@ -97,6 +97,8 @@ class MyApp extends StatelessWidget {
 
 Full integration patterns (GoRouter, auth tokens, mock layering, multi-flavor): [`docs/integration-guide.md`](docs/integration-guide.md).
 
+**Letting an AI assistant do the integration?** Point it at the AI-targeted version: [`docs/integration-guide-for-ai.md`](docs/integration-guide-for-ai.md) — same content, restructured as a decision tree with pre-checks, exact code blocks, and verification steps so the assistant can't drift.
+
 ## Documentation
 
 | Doc | What's in it |
@@ -104,7 +106,8 @@ Full integration patterns (GoRouter, auth tokens, mock layering, multi-flavor): 
 | [`skills/flutterwright/SKILL.md`](skills/flutterwright/SKILL.md) | The 8 methods (signature, exit codes, examples) |
 | [`docs/api-reference.md`](docs/api-reference.md) | SDK HTTP protocol — for direct curl / SDK contributors |
 | [`docs/architecture.md`](docs/architecture.md) | Layering, components, security constraints |
-| [`docs/integration-guide.md`](docs/integration-guide.md) | Dart integration patterns (10 scenarios) |
+| [`docs/integration-guide.md`](docs/integration-guide.md) | Dart integration patterns (10 scenarios) — for humans |
+| [`docs/integration-guide-for-ai.md`](docs/integration-guide-for-ai.md) | **AI-targeted** integration guide: pre-checks, decision tree, verification steps |
 | [`docs/troubleshooting.md`](docs/troubleshooting.md) | Failure modes by symptom + E2E checklist |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) | Design specs (v1 + future) |
 

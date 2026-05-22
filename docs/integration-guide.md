@@ -2,6 +2,8 @@
 
 把 `flutter_visual_loop` 接入到真实 Flutter app 的详细模式 — 包括 mock 数据分层、GoRouter、BLoC/Riverpod、真实 API 切换。
 
+> **让 AI 助手做集成?** 用同名 AI 专用版本 [`integration-guide-for-ai.md`](./integration-guide-for-ai.md) — 指令式 + 决策树 + 检测/验证步骤,AI 不容易在模糊地带走偏。
+
 ## 1. 添加依赖
 
 发布到 pub.dev 之前,通过 git 依赖:
