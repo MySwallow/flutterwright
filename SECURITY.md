@@ -14,11 +14,11 @@ https://github.com/MySwallow/flutterwright/security/advisories/new
 
 | 威胁                                          | 缓解措施                                                          |
 |-----------------------------------------------|-------------------------------------------------------------------|
-| 误把控制平面带到生产用户手里                  | 默认 `enableInDebugOnly: true` — release 构建里 `start()` 是 no-op |
+| 误把HTTP 服务带到生产用户手里                  | 默认 `enableInDebugOnly: true` — release 构建里 `start()` 是 no-op |
 | 本地恶意软件读写 mock 数据                    | 仅绑定 `127.0.0.1`，不允许绑 `0.0.0.0`                            |
 | Wi-Fi 上的网络攻击者                          | 仅绑定 `127.0.0.1`                                                |
 | 超大 body 导致 DoS                            | `maxBodyBytes` 默认 1 MiB，超过返回 413                           |
-| 来自其他 app 的恶意 deep-link                 | 控制平面**不是** deep-link handler，没有 `adb forward` 别的 app 进不来 |
+| 来自其他 app 的恶意 deep-link                 | HTTP 服务**不是** deep-link handler，没有 `adb forward` 别的 app 进不来 |
 
 ## SDK 不防范的场景
 

@@ -2,7 +2,7 @@
 
 > 作为 [flutter-wright](../../README.md) monorepo 的一部分发布。
 
-为 Flutter app 提供的"仅 debug 启用"的 HTTP 控制平面。给配套的
+为 Flutter app 提供的"仅 debug 启用"的 嵌入 app 的 HTTP 服务。给配套的
 [`flutter-wright`](../../skills/flutter-wright/SKILL.md) Claude Code skill 用,
 但任何能讲 HTTP 的客户端(curl、Postman、你自己的脚本)都能调。
 

@@ -1,4 +1,4 @@
-/// Debug-only HTTP control plane for Flutter apps. Designed to be driven by
+/// Debug-only in-app HTTP server for Flutter apps. Designed to be driven by
 /// the matching `flutter-wright` Claude Code skill, but the HTTP API
 /// is plain JSON over `127.0.0.1` so any client works.
 library flutter_wright_sdk;
