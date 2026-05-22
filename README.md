@@ -1,13 +1,13 @@
 # FlutterWright
 
-Playwright-style Flutter device automation via Claude Code skill, on Android.
+Playwright 风格的 Flutter 设备自动化，通过 Claude Code skill 实现，仅支持 Android。
 
-A monorepo containing:
+一个 monorepo，包含：
 
-- a **Claude Code skill** (`skills/flutterwright/`) exposing 8 methods (goto / screenshot / reload / mock / setViewport / …),
-- a **Dart SDK** (`packages/flutter_visual_loop/`) that runs a debug-only HTTP control plane inside any Flutter app,
-- a **demo Flutter app** (`packages/example/`) showing SDK integration,
-- **reference documentation** (`docs/`).
+- 一个 **Claude Code skill**（`skills/flutterwright/`），暴露 8 个方法（goto / screenshot / reload / mock / setViewport / …），
+- 一个 **Dart SDK**（`packages/flutter_visual_loop/`），在任意 Flutter 应用内运行一个仅 debug 启用的 HTTP 控制平面，
+- 一个 **示例 Flutter 应用**（`packages/example/`），展示 SDK 集成方式，
+- **参考文档**（`docs/`）。
 
 ```
 flutterwright/
@@ -19,16 +19,16 @@ flutterwright/
 └── ...
 ```
 
-## Quickstart (5 minutes)
+## 快速上手（5 分钟）
 
-### Prerequisites
+### 前置条件
 
-- Flutter 3.24+ (`flutter doctor` clean)
-- Android real device (USB debugging on) or Android emulator
-- `adb` in PATH (Android platform-tools)
+- Flutter 3.24+（`flutter doctor` 无报错）
+- Android 真机（已开启 USB 调试）或 Android 模拟器
+- `adb` 在 PATH 中（Android platform-tools）
 - `curl`
 
-### 1. Clone and bootstrap the demo app
+### 1. 克隆并初始化示例应用
 
 ```bash
 git clone https://github.com/MySwallow/flutterwright.git
@@ -37,21 +37,21 @@ flutter create . --platforms=android --org com.example.flutterwright
 flutter pub get
 ```
 
-`flutter create .` only fills in `android/` scaffolding; existing files are not touched.
+`flutter create .` 只会补齐 `android/` 脚手架，不会改动已存在的文件。
 
-### 2. Run the demo app (no fifo, plain `flutter run`)
+### 2. 运行示例应用（无需 fifo，直接 `flutter run`）
 
 ```bash
 flutter run -d $(adb devices | awk 'NR>1 && $2=="device"{print $1; exit}')
 ```
 
-Wait for:
+等待输出：
 
 ```
 [flutter_visual_loop] listening on http://127.0.0.1:9123
 ```
 
-### 3. Forward the port + verify
+### 3. 转发端口并验证
 
 ```bash
 adb forward tcp:9123 tcp:9123
@@ -59,9 +59,9 @@ curl http://localhost:9123/health
 # → {"ok":true,"version":"0.2.0","service":"flutter_visual_loop"}
 ```
 
-### 4. Drive the app from Claude Code
+### 4. 从 Claude Code 驱动应用
 
-In a Claude Code session (cwd anywhere; the skill is repo-local at `skills/flutterwright/`):
+在一个 Claude Code 会话中（cwd 任意；skill 位于仓库内 `skills/flutterwright/`）：
 
 ```
 Skill flutterwright "health"
@@ -69,9 +69,9 @@ Skill flutterwright "goto /order/detail args={\"id\":\"ORD-001\"}"
 Skill flutterwright "screenshot $CLAUDE_JOB_DIR/cur.png"
 ```
 
-See [`skills/flutterwright/SKILL.md`](skills/flutterwright/SKILL.md) for the full method reference.
+完整方法参考见 [`skills/flutterwright/SKILL.md`](skills/flutterwright/SKILL.md)。
 
-### 5. Integrate the SDK into your own Flutter app
+### 5. 将 SDK 集成进自己的 Flutter 应用
 
 ```dart
 import 'package:flutter_visual_loop/flutter_visual_loop.dart';
@@ -95,22 +95,22 @@ class MyApp extends StatelessWidget {
 }
 ```
 
-Full integration patterns (GoRouter, auth tokens, mock layering, multi-flavor): [`docs/integration-guide.md`](docs/integration-guide.md).
+完整集成模式（GoRouter、auth token、mock 分层、多 flavor）见 [`docs/integration-guide.md`](docs/integration-guide.md)。
 
-**Letting an AI assistant do the integration?** Point it at the AI-targeted version: [`docs/integration-guide-for-ai.md`](docs/integration-guide-for-ai.md) — same content, restructured as a decision tree with pre-checks, exact code blocks, and verification steps so the assistant can't drift.
+**让 AI 助手来做集成？** 让它读面向 AI 的版本：[`docs/integration-guide-for-ai.md`](docs/integration-guide-for-ai.md) — 内容相同，但重组为决策树，配前置检查、精确代码块和验证步骤，避免助手跑偏。
 
-## Documentation
+## 文档
 
-| Doc | What's in it |
+| 文档 | 内容 |
 |---|---|
-| [`skills/flutterwright/SKILL.md`](skills/flutterwright/SKILL.md) | The 8 methods (signature, exit codes, examples) |
-| [`docs/api-reference.md`](docs/api-reference.md) | SDK HTTP protocol — for direct curl / SDK contributors |
-| [`docs/architecture.md`](docs/architecture.md) | Layering, components, security constraints |
-| [`docs/integration-guide.md`](docs/integration-guide.md) | Dart integration patterns (10 scenarios) — for humans |
-| [`docs/integration-guide-for-ai.md`](docs/integration-guide-for-ai.md) | **AI-targeted** integration guide: pre-checks, decision tree, verification steps |
-| [`docs/troubleshooting.md`](docs/troubleshooting.md) | Failure modes by symptom + E2E checklist |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | Design specs (v1 + future) |
+| [`skills/flutterwright/SKILL.md`](skills/flutterwright/SKILL.md) | 8 个方法（签名、退出码、示例） |
+| [`docs/api-reference.md`](docs/api-reference.md) | SDK HTTP 协议 — 面向直接 curl 调用方与 SDK 贡献者 |
+| [`docs/architecture.md`](docs/architecture.md) | 分层、组件、安全约束 |
+| [`docs/integration-guide.md`](docs/integration-guide.md) | Dart 集成模式（10 种场景）— 面向人 |
+| [`docs/integration-guide-for-ai.md`](docs/integration-guide-for-ai.md) | **面向 AI** 的集成指南：前置检查、决策树、验证步骤 |
+| [`docs/troubleshooting.md`](docs/troubleshooting.md) | 按症状分类的故障模式 + E2E 检查清单 |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 设计规格（v1 + 未来） |
 
-## License
+## 许可证
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — 见 [`LICENSE`](LICENSE)。

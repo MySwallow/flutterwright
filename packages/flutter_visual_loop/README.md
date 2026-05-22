@@ -1,6 +1,6 @@
 # flutter_visual_loop
 
-> Shipped as part of the [flutterwright](../../README.md) monorepo.
+> 作为 [flutterwright](../../README.md) monorepo 的一部分发布。
 
 为 Flutter app 提供的"仅 debug 启用"的 HTTP 控制平面。给配套的
 [`flutterwright`](../../skills/flutterwright/SKILL.md) Claude Code skill 用,

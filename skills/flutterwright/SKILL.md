@@ -1,53 +1,53 @@
 ---
 name: flutterwright
-description: Playwright-style driver for Flutter apps running on Android devices/emulators via the flutter_visual_loop SDK. Use when you need to navigate routes, screenshot, hot-reload, inject mock data, or lock viewport. Skill provides 8 methods (health/goto/screenshot/reload/setViewport/resetViewport/mock/reset).
+description: Playwright 风格的 Flutter 应用驱动器，针对在 Android 设备/模拟器上运行、并集成了 flutter_visual_loop SDK 的 Flutter app。Use when you need to navigate routes, screenshot, hot-reload, inject mock data, or lock viewport. Skill 提供 8 个方法（health/goto/screenshot/reload/setViewport/resetViewport/mock/reset），是一个 Claude Code skill。
 ---
 
-# FlutterWright — Playwright for Flutter on Android
+# FlutterWright — Flutter on Android 的 Playwright
 
-A Layer 2b driver skill: given a host Flutter app that integrates the `flutter_visual_loop` SDK and is running on a connected Android device (real or emulator), this skill exposes a Playwright-style API to drive it from Claude or higher-layer orchestration skills.
+一个 Layer 2b 驱动 skill：给定一个集成了 `flutter_visual_loop` SDK 的宿主 Flutter app，并运行在一台已连接的 Android 设备上（真机或模拟器），本 skill 暴露一套 Playwright 风格的 API，供 Claude 或更上层的编排 skill 驱动它。
 
-Android-only in v1. iOS support, UI interaction (tap/swipe/text), and widget tree introspection are out of scope — see [v1 design spec](../../docs/superpowers/specs/2026-05-22-flutterwright-design.md) §10.
+v1 仅支持 Android。iOS 支持、UI 交互（tap/swipe/text）以及 widget 树自省不在范围内 — 见 [v1 design spec](../../docs/superpowers/specs/2026-05-22-flutterwright-design.md) §10。
 
-Declare on entry: **"Using flutterwright to <method> <target>."**
+入口声明：**"Using flutterwright to <method> <target>."**
 
-## When to use
+## 何时使用
 
-- Ad-hoc: user has a Flutter app already running via `flutter run` and wants Claude to drive it ("navigate to /order, screenshot it").
-- Composition: a higher-layer skill (e.g. flutter-visual-loop UI restoration loop) invokes flutterwright methods as building blocks via `Skill flutterwright "..."`.
+- 临时调用：用户已通过 `flutter run` 启动了 Flutter app，希望 Claude 来驱动（"导航到 /order，截图"）。
+- 组合调用：更上层的 skill（如 flutter-visual-loop UI 还原循环）通过 `Skill flutterwright "..."` 把 flutterwright 的方法作为构件来调用。
 
-Don't use if: the host app hasn't integrated `flutter_visual_loop` SDK (no HTTP control plane → nothing to talk to). Refer the user to [integration-guide.md](../../docs/integration-guide.md).
+不要使用的场景：宿主 app 未集成 `flutter_visual_loop` SDK（没有 HTTP 控制平面 → 没东西可对话）。把用户引到 [integration-guide.md](../../docs/integration-guide.md)。
 
-## Concepts
+## 概念
 
-- **Page** = the Flutter app currently running on a connected Android device.
-- **Route** = a named app route (e.g. `/order/detail`).
-- **Mock** = data injected via `flutter_visual_loop.MockDataProvider`.
-- **Viewport** = `wm size` + `wm density` override locking the device to design resolution.
-- **Reload** = Flutter hot reload triggered via SDK `/reload` endpoint (`vm_service.reloadSources`).
+- **Page** = 当前运行在已连接 Android 设备上的 Flutter app。
+- **Route** = 一个命名应用路由（如 `/order/detail`）。
+- **Mock** = 通过 `flutter_visual_loop.MockDataProvider` 注入的数据。
+- **Viewport** = 通过 `wm size` + `wm density` 覆盖，把设备锁定到设计分辨率。
+- **Reload** = 通过 SDK `/reload` 端点触发的 Flutter 热重载（`vm_service.reloadSources`）。
 
-## Methods
+## 方法
 
-| Method | Purpose | Script |
+| 方法 | 用途 | 脚本 |
 |---|---|---|
-| `health` | Verify env (adb / device / SDK reachability + auto `adb forward` 9123) | `health.sh` |
-| `goto <route> [args=<json>] [popUntilRoot=<bool>]` | Push a named route | `goto.sh` |
-| `screenshot <out_path>` | Device screenshot (full frame incl. status bar) to PNG | `screenshot.sh` |
-| `reload` | Flutter hot reload via SDK `/reload` | `reload.sh` |
-| `setViewport <w> <h> <dpi>` | Lock `wm size` + `wm density` | `set_viewport.sh` |
-| `resetViewport` | Restore `wm size` + `wm density` to device defaults | `reset_viewport.sh` |
-| `mock <action> [key=<k>] [value=<json>] [enabled=<bool>]` | Mock data control (action ∈ set/get/reset/enable/list) | `mock.sh` |
-| `reset [clearMock=<bool>]` | Pop navigator to root, optionally clear mock | `reset.sh` |
+| `health` | 检查环境（adb / device / SDK 可达性 + 自动 `adb forward` 9123） | `health.sh` |
+| `goto <route> [args=<json>] [popUntilRoot=<bool>]` | 推入一个命名路由 | `goto.sh` |
+| `screenshot <out_path>` | 设备截图（整帧含状态栏）输出为 PNG | `screenshot.sh` |
+| `reload` | 通过 SDK `/reload` 触发 Flutter 热重载 | `reload.sh` |
+| `setViewport <w> <h> <dpi>` | 锁定 `wm size` + `wm density` | `set_viewport.sh` |
+| `resetViewport` | 把 `wm size` + `wm density` 恢复到设备默认值 | `reset_viewport.sh` |
+| `mock <action> [key=<k>] [value=<json>] [enabled=<bool>]` | Mock 数据控制（action ∈ set/get/reset/enable/list） | `mock.sh` |
+| `reset [clearMock=<bool>]` | 把 navigator pop 到根，可选清空 mock | `reset.sh` |
 
-## Prerequisites
+## 前置条件
 
-- macOS / Linux with `adb` and `curl` in `PATH`.
-- Host Flutter app integrates `flutter_visual_loop` ≥ 0.2.0 (containing `/reload` endpoint).
-- `flutter run -d <device>` is active. **No fifo needed** — v1 dropped the stdin-fifo hot-reload path.
+- macOS / Linux，`adb` 与 `curl` 都在 `PATH` 中。
+- 宿主 Flutter app 集成了 `flutter_visual_loop` ≥ 0.2.0（包含 `/reload` 端点）。
+- `flutter run -d <device>` 处于激活状态。**无需 fifo** — v1 已废弃 stdin-fifo 的热重载路径。
 
-Full setup: see [`README.md` Quickstart](../../README.md#quickstart).
+完整环境准备：见 [`README.md` Quickstart](../../README.md#quickstart)。
 
-## Method reference
+## 方法参考
 
 ### `health`
 
@@ -55,11 +55,11 @@ Full setup: see [`README.md` Quickstart](../../README.md#quickstart).
 Skill flutterwright "health"
 ```
 
-Validates `adb` + at least one connected device + `curl` available, then performs `adb forward tcp:9123 tcp:9123` (idempotent) and probes `GET /health`.
+校验 `adb` + 至少一台已连接设备 + `curl` 可用，然后执行 `adb forward tcp:9123 tcp:9123`（幂等），并探测 `GET /health`。
 
-Exit codes: 0 ok / 10 adb missing / 11 no device / 12 SDK unreachable / 13 curl missing.
+退出码：0 成功 / 10 adb 缺失 / 11 没有设备 / 12 SDK 不可达 / 13 curl 缺失。
 
-Output: `ok: device=<id> port=9123`.
+输出：`ok: device=<id> port=9123`。
 
 ### `goto`
 
@@ -67,11 +67,11 @@ Output: `ok: device=<id> port=9123`.
 Skill flutterwright "goto <route> [args=<json>] [popUntilRoot=<bool>]"
 ```
 
-Push `<route>` via `Navigator.pushNamed`. `args` is an arbitrary JSON value passed as `arguments:`. `popUntilRoot` defaults to `true` (pop to root first, avoiding state pollution across loop iterations).
+通过 `Navigator.pushNamed` 推入 `<route>`。`args` 是任意 JSON 值，作为 `arguments:` 传入。`popUntilRoot` 默认 `true`（先 pop 到根，避免循环迭代间的状态污染）。
 
-Example: `Skill flutterwright "goto /order/detail args={\"id\":\"ORD-001\"}"`
+示例：`Skill flutterwright "goto /order/detail args={\"id\":\"ORD-001\"}"`
 
-Exit codes: 0 ok / 40 missing route or unknown arg / 41 navigator not ready (HTTP 503) / 42 push failed (HTTP 500) / 43 SDK unreachable.
+退出码：0 成功 / 40 缺少 route 或未知参数 / 41 navigator 未就绪（HTTP 503）/ 42 push 失败（HTTP 500）/ 43 SDK 不可达。
 
 ### `screenshot`
 
@@ -79,11 +79,11 @@ Exit codes: 0 ok / 40 missing route or unknown arg / 41 navigator not ready (HTT
 Skill flutterwright "screenshot <out_path>"
 ```
 
-`adb exec-out screencap -p > <out>` followed by PNG magic-byte check. Captures **full device frame including status bar**. For Flutter-only render tree, use SDK `GET /screenshot` directly (not exposed as a method in v1).
+`adb exec-out screencap -p > <out>`，随后做 PNG magic-byte 检查。捕获**整帧设备画面，含状态栏**。若只想要 Flutter render 树，直接调 SDK `GET /screenshot`（v1 没有把它暴露为 skill 方法）。
 
-Example: `Skill flutterwright "screenshot /tmp/order_detail.png"`
+示例：`Skill flutterwright "screenshot /tmp/order_detail.png"`
 
-Exit codes: 0 ok / 20 empty file / 21 file < 1KB / 22 not a PNG (device locked?).
+退出码：0 成功 / 20 空文件 / 21 文件 < 1KB / 22 不是 PNG（设备锁屏？）。
 
 ### `reload`
 
@@ -91,13 +91,13 @@ Exit codes: 0 ok / 20 empty file / 21 file < 1KB / 22 not a PNG (device locked?)
 Skill flutterwright "reload"
 ```
 
-Triggers `vm_service.reloadSources` via SDK `POST /reload`. Assumes source files on the device-side dart isolate have been updated (typically the upper-layer skill or user edited Dart files before invoking).
+通过 SDK `POST /reload` 触发 `vm_service.reloadSources`。前提是设备侧 dart isolate 的源文件已更新（通常是上层 skill 或用户在调用前已编辑了 Dart 文件）。
 
-Example: `Skill flutterwright "reload"`
+示例：`Skill flutterwright "reload"`
 
-Exit codes: 0 ok / 30 SDK unreachable / 31 VM service not available (release build? SDK < 0.2.0?) / 32 `/reload` returned non-200.
+退出码：0 成功 / 30 SDK 不可达 / 31 VM service 不可用（release 构建？SDK < 0.2.0？）/ 32 `/reload` 返回非 200。
 
-Implementation detail: sleeps 1s after success to let Flutter apply the reload.
+实现细节：成功后 sleep 1s，让 Flutter 应用 reload。
 
 ### `setViewport`
 
@@ -105,11 +105,11 @@ Implementation detail: sleeps 1s after success to let Flutter apply the reload.
 Skill flutterwright "setViewport <width> <height> <dpi>"
 ```
 
-Records original `wm size` and `wm density` to `$CLAUDE_JOB_DIR/fw_original.env`, then applies the override and validates via readback (some vendor ROMs silently reject `wm` overrides — readback detects this).
+先把原始 `wm size` 和 `wm density` 记录到 `$CLAUDE_JOB_DIR/fw_original.env`，再应用覆盖，并通过回读校验（某些厂商 ROM 会静默拒绝 `wm` 覆盖 — 回读用于检测）。
 
-Example: `Skill flutterwright "setViewport 1080 2400 480"`
+示例：`Skill flutterwright "setViewport 1080 2400 480"`
 
-Exit codes: 0 ok / 60 missing args / 61 override rejected (readback mismatch).
+退出码：0 成功 / 60 缺少参数 / 61 覆盖被拒（回读不一致）。
 
 ### `resetViewport`
 
@@ -117,11 +117,11 @@ Exit codes: 0 ok / 60 missing args / 61 override rejected (readback mismatch).
 Skill flutterwright "resetViewport"
 ```
 
-Restores `wm size` + `wm density` from `$CLAUDE_JOB_DIR/fw_original.env`. If the file is missing, falls back to `wm size reset` + `wm density reset`. **Always exits 0** — safe to call from a `trap` or any cleanup hook.
+从 `$CLAUDE_JOB_DIR/fw_original.env` 恢复 `wm size` + `wm density`。文件不存在时，回退到 `wm size reset` + `wm density reset`。**总是退出 0** — 在 `trap` 或任何 cleanup hook 中调用都安全。
 
-Example: `Skill flutterwright "resetViewport"`
+示例：`Skill flutterwright "resetViewport"`
 
-Exit codes: 0 always.
+退出码：0 恒为 0。
 
 ### `mock`
 
@@ -129,20 +129,20 @@ Exit codes: 0 always.
 Skill flutterwright "mock <action> [key=<k>] [value=<json>] [enabled=<bool>]"
 ```
 
-Dispatches `POST /mock` with the right body for each action:
+分发到 `POST /mock`，每个 action 用对应的 body：
 
-- `mock set key=<k> value=<json>` — inject a value
-- `mock get key=<k>` — read a value
-- `mock reset` — clear all
-- `mock enable enabled=<true|false>` — toggle global mock mode
-- `mock list` — list current state
+- `mock set key=<k> value=<json>` — 注入一个值
+- `mock get key=<k>` — 读取一个值
+- `mock reset` — 清空全部
+- `mock enable enabled=<true|false>` — 切换全局 mock 模式
+- `mock list` — 列出当前状态
 
-Examples:
+示例：
 - `Skill flutterwright "mock set key=user value={\"name\":\"Alice\"}"`
 - `Skill flutterwright "mock enable enabled=false"`
 - `Skill flutterwright "mock list"`
 
-Exit codes: 0 / 50 missing action / 51 invalid action or unknown arg / 52 missing key (set/get) / 53 missing value (set) / 54 missing enabled (enable) / 55 SDK returned 501 (no MockDataProvider configured) / 56 SDK unreachable.
+退出码：0 / 50 缺少 action / 51 非法 action 或未知参数 / 52 缺少 key（set/get）/ 53 缺少 value（set）/ 54 缺少 enabled（enable）/ 55 SDK 返回 501（未配置 MockDataProvider）/ 56 SDK 不可达。
 
 ### `reset`
 
@@ -150,40 +150,40 @@ Exit codes: 0 / 50 missing action / 51 invalid action or unknown arg / 52 missin
 Skill flutterwright "reset [clearMock=<bool>]"
 ```
 
-`POST /reset` with `{"clearMock":<bool>}`. Defaults to `clearMock=true`.
+`POST /reset`，body 为 `{"clearMock":<bool>}`。默认 `clearMock=true`。
 
-Example: `Skill flutterwright "reset"` or `Skill flutterwright "reset clearMock=false"`
+示例：`Skill flutterwright "reset"` 或 `Skill flutterwright "reset clearMock=false"`
 
-Exit codes: 0 / 70 SDK unreachable or unknown arg / 71 `/reset` returned non-200.
+退出码：0 / 70 SDK 不可达或未知参数 / 71 `/reset` 返回非 200。
 
-## Dispatch convention
+## 派发约定
 
-When invoked as `Skill flutterwright "<method> <args...>"`:
+当以 `Skill flutterwright "<method> <args...>"` 形式调用时：
 
-1. Parse the first whitespace-separated token as the **method name**.
-2. Parse remaining tokens as positional (for `goto`/`screenshot`/`setViewport`) followed by `key=value` pairs.
-3. Invoke `bash skills/flutterwright/scripts/<method>.sh <args>`.
+1. 把第一个由空白分隔的 token 解析为**方法名**。
+2. 把剩余 token 解析为位置参数（用于 `goto`/`screenshot`/`setViewport`），随后是 `key=value` 对。
+3. 调用 `bash skills/flutterwright/scripts/<method>.sh <args>`。
 
-JSON values in `key=value` must escape internal `"` as `\"` (so they survive shell + curl). Example:
+`key=value` 中的 JSON 值必须把内部的 `"` 转义为 `\"`（这样才能穿过 shell + curl）。示例：
 
-- Skill call: `goto /order/detail args={\"id\":\"X\"}`
-- Bash exec:  `bash scripts/goto.sh /order/detail 'args={"id":"X"}'`
+- Skill 调用：`goto /order/detail args={\"id\":\"X\"}`
+- Bash 执行：`bash scripts/goto.sh /order/detail 'args={"id":"X"}'`
 
-## Exit code map
+## 退出码对照
 
-| Range | Category | Notes |
+| 区间 | 类别 | 备注 |
 |---|---|---|
-| 0 | success | — |
-| 10-13 | env / device | health.sh — see [troubleshooting](../../docs/troubleshooting.md) |
-| 20-22 | screenshot | screenshot.sh |
-| 30-32 | reload | reload.sh |
-| 40-43 | navigate | goto.sh |
-| 50-56 | mock | mock.sh |
-| 60-61 | viewport | set_viewport.sh / reset_viewport.sh (rare — reset always exits 0) |
-| 70-71 | reset | reset.sh |
+| 0 | 成功 | — |
+| 10-13 | 环境 / 设备 | health.sh — 见 [troubleshooting](../../docs/troubleshooting.md) |
+| 20-22 | 截图 | screenshot.sh |
+| 30-32 | 热重载 | reload.sh |
+| 40-43 | 导航 | goto.sh |
+| 50-56 | Mock | mock.sh |
+| 60-61 | Viewport | set_viewport.sh / reset_viewport.sh（罕见 — reset 总是退出 0） |
+| 70-71 | 重置 | reset.sh |
 
-## See also
+## 参见
 
-- [api-reference.md](../../docs/api-reference.md) — SDK HTTP protocol
-- [integration-guide.md](../../docs/integration-guide.md) — integrating the SDK into your Flutter app
-- [troubleshooting.md](../../docs/troubleshooting.md) — failure modes by symptom
+- [api-reference.md](../../docs/api-reference.md) — SDK HTTP 协议
+- [integration-guide.md](../../docs/integration-guide.md) — 把 SDK 集成进你的 Flutter app
+- [troubleshooting.md](../../docs/troubleshooting.md) — 按症状分类的故障模式
