@@ -9,6 +9,10 @@
 
 set -euo pipefail
 
+# shellcheck source=_lib.sh
+source "$(dirname "$0")/_lib.sh"
+fw_ensure_health
+
 PORT="${VL_PORT:-9123}"
 ACTION="${1:?action required: set|get|reset|enable|list (positional arg 1)}"; shift
 

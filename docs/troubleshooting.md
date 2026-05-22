@@ -4,6 +4,8 @@
 
 ## `health` 失败
 
+> **退出码 10-13 也可能从 `goto` / `screenshot` / `mock` / `reload` / `reset` / `setViewport` 的首次调用触发** —— 这些方法在本 job 首次调用时会自动跑同一套环境检查（[SKILL.md §环境检查（自动）](../skills/flutter-wright/SKILL.md#环境检查自动)），失败统一以 health 段退出码退出。下面排查步骤对显式 `health` 和隐式触发都适用。
+
 ### exit 10:adb 未安装
 
 ```bash

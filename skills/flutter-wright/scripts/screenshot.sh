@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+# shellcheck source=_lib.sh
+source "$(dirname "$0")/_lib.sh"
+fw_ensure_health
+
 OUT="${1:?output path required}"
 mkdir -p "$(dirname "$OUT")"
 

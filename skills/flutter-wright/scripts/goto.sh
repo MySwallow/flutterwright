@@ -6,6 +6,10 @@
 
 set -euo pipefail
 
+# shellcheck source=_lib.sh
+source "$(dirname "$0")/_lib.sh"
+fw_ensure_health
+
 PORT="${VL_PORT:-9123}"
 ROUTE="${1:?route required (positional arg 1)}"
 shift
