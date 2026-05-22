@@ -1,4 +1,4 @@
-import 'package:flutter_visual_loop/flutter_visual_loop.dart';
+import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
 
 class DemoMockProvider extends InMemoryMockDataProvider {
   DemoMockProvider() {

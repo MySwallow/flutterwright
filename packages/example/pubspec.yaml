@@ -1,5 +1,5 @@
-name: flutter_visual_loop_example
-description: Demo Flutter app showcasing flutter_visual_loop integration.
+name: flutter_wright_example
+description: Demo Flutter app showcasing flutter_wright_sdk integration.
 publish_to: 'none'
 version: 0.1.0
 
@@ -10,8 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_visual_loop:
-    path: ../flutter_visual_loop
+  flutter_wright_sdk:
+    path: ../flutter_wright_sdk
 
 dev_dependencies:
   flutter_test:

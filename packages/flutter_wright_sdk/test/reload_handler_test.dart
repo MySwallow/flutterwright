@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_visual_loop/src/handlers/reload_handler.dart';
+import 'package:flutter_wright_sdk/src/handlers/reload_handler.dart';
 
 void main() {
   group('ReloadHandler', () {

@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_visual_loop/flutter_visual_loop.dart';
+import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
 
 void main() {
   group('RouteRegistry', () {

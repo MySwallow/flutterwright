@@ -1,9 +1,9 @@
-# flutter_visual_loop
+# flutter_wright_sdk
 
-> 作为 [flutterwright](../../README.md) monorepo 的一部分发布。
+> 作为 [flutter_wright](../../README.md) monorepo 的一部分发布。
 
 为 Flutter app 提供的"仅 debug 启用"的 HTTP 控制平面。给配套的
-[`flutterwright`](../../skills/flutterwright/SKILL.md) Claude Code skill 用,
+[`flutter_wright`](../../skills/flutter_wright/SKILL.md) Claude Code skill 用,
 但任何能讲 HTTP 的客户端(curl、Postman、你自己的脚本)都能调。
 
 > **Release 构建里这个包是 no-op。** `start()` 直接返回,不绑任何 socket。可以放心留在生产代码里。
@@ -12,21 +12,21 @@
 
 ```yaml
 dependencies:
-  flutter_visual_loop:
+  flutter_wright_sdk:
     git:
       url: https://github.com/MySwallow/flutterwright
-      path: packages/flutter_visual_loop
+      path: packages/flutter_wright_sdk
 ```
 
 ## 集成(3 行)
 
 ```dart
-import 'package:flutter_visual_loop/flutter_visual_loop.dart';
+import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FlutterVisualLoop.start();                  // 1. 启动控制 server(仅 debug)
-  runApp(VisualLoopRoot(child: const MyApp()));     // 2. 让 /screenshot 可用
+  await FlutterWright.start();                  // 1. 启动控制 server(仅 debug)
+  runApp(FlutterWrightRoot(child: const MyApp()));     // 2. 让 /screenshot 可用
 }
 
 class MyApp extends StatelessWidget {
@@ -35,21 +35,21 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: FlutterVisualLoop.navigatorKey, // 3. 把 navigator 让出来
+      navigatorKey: FlutterWright.navigatorKey, // 3. 把 navigator 让出来
       onGenerateRoute: appRouter,
     );
   }
 }
 
 // 启动时注册"可被发现"的路由:
-FlutterVisualLoop.routes.register('/home');
-FlutterVisualLoop.routes.register('/order/detail');
+FlutterWright.routes.register('/home');
+FlutterWright.routes.register('/order/detail');
 ```
 
 或者启动时一次传入:
 
 ```dart
-await FlutterVisualLoop.start(
+await FlutterWright.start(
   testRoutes: const ['/home', '/login', '/order/detail'],
 );
 ```
@@ -60,7 +60,7 @@ await FlutterVisualLoop.start(
 final mock = InMemoryMockDataProvider();
 mock.set('user', {'name': 'Alice'});
 
-await FlutterVisualLoop.start(mockProvider: mock);
+await FlutterWright.start(mockProvider: mock);
 
 // 在你的 repository 里:
 class UserRepo {
@@ -102,8 +102,8 @@ curl -X POST http://localhost:9123/navigate \
 ## 配置
 
 ```dart
-await FlutterVisualLoop.start(
-  config: const VisualLoopConfig(
+await FlutterWright.start(
+  config: const FlutterWrightConfig(
     host: '127.0.0.1',                    // 真实 app 里别用 0.0.0.0
     port: 9123,
     enableInDebugOnly: true,              // false 时 profile 也启

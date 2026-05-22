@@ -14,11 +14,11 @@ flutter run -d <device-id>
 启动后你应该看到:
 
 ```
-[flutter_visual_loop] registered route: /
-[flutter_visual_loop] registered route: /login
-[flutter_visual_loop] registered route: /product/detail
-[flutter_visual_loop] registered route: /order/detail
-[flutter_visual_loop] listening on http://127.0.0.1:9123
+[flutter_wright_sdk] registered route: /
+[flutter_wright_sdk] registered route: /login
+[flutter_wright_sdk] registered route: /product/detail
+[flutter_wright_sdk] registered route: /order/detail
+[flutter_wright_sdk] listening on http://127.0.0.1:9123
 ```
 
 ## 从电脑端控制
@@ -27,7 +27,7 @@ flutter run -d <device-id>
 adb forward tcp:9123 tcp:9123
 
 curl http://localhost:9123/health
-# → {"ok":true,"version":"0.1.0","service":"flutter_visual_loop"}
+# → {"ok":true,"version":"0.1.0","service":"flutter_wright_sdk"}
 
 curl http://localhost:9123/routes
 # → {"ok":true,"routes":["/","/login","/product/detail","/order/detail"]}

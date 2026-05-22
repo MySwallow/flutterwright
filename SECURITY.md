@@ -4,13 +4,13 @@
 
 请通过 GitHub Security Advisory（不要开 public issue）上报安全问题：
 
-https://github.com/MySwallow/flutter-visual-loop/security/advisories/new
+https://github.com/MySwallow/flutterwright/security/advisories/new
 
 48 小时内会有响应。
 
 ## 威胁模型 — SDK 防范哪些东西
 
-`flutter_visual_loop` 是**调试工具**，不是生产组件。它的威胁模型相对收敛：
+`flutter_wright_sdk` 是**调试工具**，不是生产组件。它的威胁模型相对收敛：
 
 | 威胁                                          | 缓解措施                                                          |
 |-----------------------------------------------|-------------------------------------------------------------------|
@@ -31,7 +31,7 @@ https://github.com/MySwallow/flutter-visual-loop/security/advisories/new
 - 保持 `enableInDebugOnly: true`（默认）。
 - 同一台电脑跑多个 Flutter 项目时，使用非默认端口：
   ```dart
-  VisualLoopConfig(port: 9124)
+  FlutterWrightConfig(port: 9124)
   ```
 - CI 跑完确保执行 `adb forward --remove tcp:9123`（或 `--remove-all`），避免其他 job 误连到旧 server。
 - 不要把含真实用户 PII 的 mock 数据提交进 example。

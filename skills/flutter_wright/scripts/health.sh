@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# health.sh — flutterwright health check: adb, device, port forward, SDK reachability.
+# health.sh — flutter_wright health check: adb, device, port forward, SDK reachability.
 # Exits non-zero with a single line "ERR: <reason>" on failure.
 
 set -euo pipefail
@@ -33,7 +33,7 @@ adb -s "$DEVICE_ID" forward tcp:"$PORT" tcp:"$PORT" >/dev/null
 
 # Probe /health
 if ! curl -sf "http://127.0.0.1:$PORT/health" >/dev/null; then
-  echo "ERR: SDK not reachable on 127.0.0.1:$PORT. Is 'flutter run' active with FlutterVisualLoop.start()?"
+  echo "ERR: SDK not reachable on 127.0.0.1:$PORT. Is 'flutter run' active with FlutterWright.start()?"
   exit 12
 fi
 

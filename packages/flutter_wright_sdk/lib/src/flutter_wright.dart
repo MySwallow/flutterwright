@@ -15,19 +15,19 @@ import 'logger.dart';
 import 'mock_provider.dart';
 import 'route_registry.dart';
 
-class FlutterVisualLoop {
-  FlutterVisualLoop._();
+class FlutterWright {
+  FlutterWright._();
 
   static const String version = '0.2.0';
 
   /// Single GlobalKey the host should pass to `MaterialApp(navigatorKey:)`.
   /// Stable across the app lifetime.
   static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>(debugLabel: 'flutter_visual_loop');
+      GlobalKey<NavigatorState>(debugLabel: 'flutter_wright_sdk');
 
   static final RouteRegistry routes = RouteRegistry();
 
-  static VisualLoopHttpServer? _server;
+  static FlutterWrightHttpServer? _server;
   static MockDataProvider? _mockProvider;
 
   static bool get isRunning => _server?.isRunning ?? false;
@@ -38,7 +38,7 @@ class FlutterVisualLoop {
   /// In release builds (or when `config.enableInDebugOnly == true` and
   /// `kDebugMode` is false), returns without binding.
   static Future<void> start({
-    VisualLoopConfig config = const VisualLoopConfig(),
+    FlutterWrightConfig config = const FlutterWrightConfig(),
     MockDataProvider? mockProvider,
     Iterable<String> testRoutes = const <String>[],
   }) async {
@@ -68,7 +68,7 @@ class FlutterVisualLoop {
       ReloadHandler(),
     ];
 
-    _server = VisualLoopHttpServer(config: config, handlers: handlers);
+    _server = FlutterWrightHttpServer(config: config, handlers: handlers);
     if (config.autoStart) {
       await _server!.start();
     }

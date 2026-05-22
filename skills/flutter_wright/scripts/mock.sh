@@ -61,6 +61,6 @@ HTTP_CODE=$(curl -s -o "$TMP" -w "%{http_code}" -X POST \
 case "$HTTP_CODE" in
   200) cat "$TMP"; echo;;
   000) echo "ERR: SDK unreachable at 127.0.0.1:$PORT" >&2; exit 56;;
-  501) echo "ERR: no MockDataProvider configured (call FlutterVisualLoop.start(mockProvider:...))" >&2; cat "$TMP" >&2; exit 55;;
+  501) echo "ERR: no MockDataProvider configured (call FlutterWright.start(mockProvider:...))" >&2; cat "$TMP" >&2; exit 55;;
   *)   echo "ERR: /mock returned $HTTP_CODE" >&2; cat "$TMP" >&2; exit 56;;
 esac

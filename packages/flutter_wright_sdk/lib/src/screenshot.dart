@@ -9,7 +9,7 @@ import 'logger.dart';
 /// Capture the current screen via the root `RenderRepaintBoundary`.
 ///
 /// Returns null when the root render object is not a `RepaintBoundary`.
-/// In that case, the host should wrap its app with [VisualLoopRoot], or
+/// In that case, the host should wrap its app with [FlutterWrightRoot], or
 /// the skill should fall back to `adb exec-out screencap`.
 ///
 /// The captured image excludes OS chrome (status/nav bars). Pair with
@@ -22,7 +22,7 @@ Future<Uint8List?> captureFlutterScreen({double? pixelRatio}) async {
 
     if (root is! RenderRepaintBoundary) {
       vlWarn('root render object is not a RepaintBoundary; '
-          'wrap your app with VisualLoopRoot to enable /screenshot');
+          'wrap your app with FlutterWrightRoot to enable /screenshot');
       return null;
     }
 
@@ -39,9 +39,9 @@ Future<Uint8List?> captureFlutterScreen({double? pixelRatio}) async {
 
 /// Widget wrapper to make `/screenshot` reliable.
 ///
-/// Usage: `runApp(VisualLoopRoot(child: MyApp()))`.
-class VisualLoopRoot extends StatelessWidget {
-  const VisualLoopRoot({required this.child, super.key});
+/// Usage: `runApp(FlutterWrightRoot(child: MyApp()))`.
+class FlutterWrightRoot extends StatelessWidget {
+  const FlutterWrightRoot({required this.child, super.key});
 
   final Widget child;
 

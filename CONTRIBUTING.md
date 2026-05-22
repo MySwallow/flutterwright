@@ -12,8 +12,8 @@
 ## 准备开发环境
 
 ```bash
-git clone https://github.com/MySwallow/flutter-visual-loop.git
-cd flutter-visual-loop/packages/flutter_visual_loop
+git clone https://github.com/MySwallow/flutterwright.git
+cd flutterwright/packages/flutter_wright_sdk
 flutter pub get
 flutter test
 ```
@@ -21,8 +21,8 @@ flutter test
 跑 example app：
 
 ```bash
-cd flutter-visual-loop/example
-flutter create . --platforms=android,ios --org com.example.visualloop
+cd flutterwright/packages/example
+flutter create . --platforms=android --org com.example.flutterwright
 flutter pub get
 flutter run -d <device-id>
 ```
@@ -45,9 +45,9 @@ flutter run -d <device-id>
 
 提 PR 前确认：
 
-- [ ] `packages/flutter_visual_loop` 下 `flutter test` 通过
+- [ ] `packages/flutter_wright_sdk` 下 `flutter test` 通过
 - [ ] `bash scripts/validate.sh` 显示 0 FAIL
-- [ ] 加了新 endpoint？更新了 `docs/api-reference.md` 和 `packages/flutter_visual_loop/README.md`
+- [ ] 加了新 endpoint？更新了 `docs/api-reference.md` 和 `packages/flutter_wright_sdk/README.md`
 - [ ] 改了默认行为？在 `CHANGELOG.md` 加了一条
 - [ ] commit message 遵循 conventional commits（`feat:`、`fix:`、`docs:`、`refactor:`、`test:`、`chore:`）
 

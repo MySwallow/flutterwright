@@ -1,6 +1,6 @@
 # 集成指南
 
-把 `flutter_visual_loop` 接入到真实 Flutter app 的详细模式 — 包括 mock 数据分层、GoRouter、BLoC/Riverpod、真实 API 切换。
+把 `flutter_wright_sdk` 接入到真实 Flutter app 的详细模式 — 包括 mock 数据分层、GoRouter、BLoC/Riverpod、真实 API 切换。
 
 > **让 AI 助手做集成?** 用同名 AI 专用版本 [`integration-guide-for-ai.md`](./integration-guide-for-ai.md) — 指令式 + 决策树 + 检测/验证步骤,AI 不容易在模糊地带走偏。
 
@@ -11,40 +11,40 @@
 ```yaml
 # your_app/pubspec.yaml
 dependencies:
-  flutter_visual_loop:
+  flutter_wright_sdk:
     git:
       url: https://github.com/MySwallow/flutterwright
-      path: packages/flutter_visual_loop
+      path: packages/flutter_wright_sdk
 ```
 
 如果你 vendor 了一份本地拷贝,也可以用 `path:`:
 
 ```yaml
 dependencies:
-  flutter_visual_loop:
-    path: ../flutterwright/packages/flutter_visual_loop
+  flutter_wright_sdk:
+    path: ../flutter_wright/packages/flutter_wright_sdk
 ```
 
 ## 2. 连接 `main()`
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:flutter_visual_loop/flutter_visual_loop.dart';
+import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // (a) 启动 SDK — release 构建自动跳过
-  await FlutterVisualLoop.start(
+  await FlutterWright.start(
     testRoutes: const ['/home', '/login', '/order/detail'],
   );
 
-  // (b) 用 VisualLoopRoot 包根,/screenshot 才能可靠工作
-  runApp(VisualLoopRoot(child: const MyApp()));
+  // (b) 用 FlutterWrightRoot 包根,/screenshot 才能可靠工作
+  runApp(FlutterWrightRoot(child: const MyApp()));
 }
 ```
 
-如果你不方便用 `VisualLoopRoot`(比如有自定义 binding 初始化),那就忽略 `/screenshot` endpoint,让 skill 一直走 `adb screencap` — 在 Android 上这反而是更优选择,因为它能截到完整设备帧。
+如果你不方便用 `FlutterWrightRoot`(比如有自定义 binding 初始化),那就忽略 `/screenshot` endpoint,让 skill 一直走 `adb screencap` — 在 Android 上这反而是更优选择,因为它能截到完整设备帧。
 
 ## 3. 把 navigator 让出来
 
@@ -55,7 +55,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: FlutterVisualLoop.navigatorKey,
+      navigatorKey: FlutterWright.navigatorKey,
       onGenerateRoute: appRouter,
     );
   }
@@ -68,12 +68,12 @@ class MyApp extends StatelessWidget {
 
 ```dart
 // 启动时一次性传入:
-await FlutterVisualLoop.start(
+await FlutterWright.start(
   testRoutes: const ['/home', '/order/detail', '/login'],
 );
 
 // 或之后任何时候:
-FlutterVisualLoop.routes.register('/cart');
+FlutterWright.routes.register('/cart');
 ```
 
 注册的路由会出现在 `GET /routes` 里供 skill 发现。未注册的路由仍然能被 `/navigate` push — 注册关乎"可发现性",不是"准入控制"。
@@ -108,7 +108,7 @@ class UserRepo {
 final mock = InMemoryMockDataProvider()
   ..set('user.U1', {'id': 'U1', 'name': 'Alice'});
 
-await FlutterVisualLoop.start(mockProvider: mock);
+await FlutterWright.start(mockProvider: mock);
 
 final userRepo = UserRepo(mock: mock);
 // 用你的 DI(provider / get_it / Riverpod)注入 userRepo ...
@@ -131,7 +131,7 @@ curl -X POST localhost:9123/mock \
 
 ```dart
 final router = GoRouter(
-  navigatorKey: FlutterVisualLoop.navigatorKey,
+  navigatorKey: FlutterWright.navigatorKey,
   routes: [
     GoRoute(path: '/', builder: (_, __) => const HomePage()),
     GoRoute(path: '/order/:id', builder: (_, st) => OrderPage(id: st.pathParameters['id']!)),
@@ -171,8 +171,8 @@ curl -X POST localhost:9123/mock \
 默认 `enableInDebugOnly: true` 已经做了。如果你想在 profile 构建里也开(给 QA 用):
 
 ```dart
-await FlutterVisualLoop.start(
-  config: const VisualLoopConfig(enableInDebugOnly: false),
+await FlutterWright.start(
+  config: const FlutterWrightConfig(enableInDebugOnly: false),
 );
 ```
 
@@ -189,7 +189,7 @@ await FlutterVisualLoop.start(
 import 'dart:io';
 
 if (!Platform.environment.containsKey('FLUTTER_TEST')) {
-  await FlutterVisualLoop.start();
+  await FlutterWright.start();
 }
 ```
 
@@ -199,8 +199,8 @@ if (!Platform.environment.containsKey('FLUTTER_TEST')) {
 
 ```dart
 Future<void> mainDev() async {
-  await FlutterVisualLoop.start(
-    config: const VisualLoopConfig(port: 9123),
+  await FlutterWright.start(
+    config: const FlutterWrightConfig(port: 9123),
     mockProvider: DemoMockProvider(),
   );
   runApp(MyApp());

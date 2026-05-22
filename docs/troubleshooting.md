@@ -1,6 +1,6 @@
 # 故障排查
 
-按 "现象在哪一层暴露" 分组。所有方法名为 flutterwright v1 命名(`health/goto/screenshot/reload/setViewport/resetViewport/mock/reset`)。
+按 "现象在哪一层暴露" 分组。所有方法名为 flutter_wright v1 命名(`health/goto/screenshot/reload/setViewport/resetViewport/mock/reset`)。
 
 ## `health` 失败
 
@@ -33,7 +33,7 @@ emulator -avd <name> -no-snapshot-load &
 
 - `flutter run` 还在跑吗?  `pgrep -f 'flutter run'`
 - 端口转发?  `adb forward --list | grep 9123`(没有就 `adb forward tcp:9123 tcp:9123`)
-- SDK 真的 bind 了?`flutter run` 输出应有 `[flutter_visual_loop] listening on http://127.0.0.1:9123`
+- SDK 真的 bind 了?`flutter run` 输出应有 `[flutter_wright_sdk] listening on http://127.0.0.1:9123`
 - 主机上 9123 被占?  `lsof -i :9123`
 
 ### exit 13:curl 未安装
@@ -46,7 +46,7 @@ emulator -avd <name> -no-snapshot-load &
 
 App 在启动。两选一:
 - 等 ~500ms 重试。
-- `FlutterVisualLoop.start(autoStart: false)` + 第一帧后调 `FlutterVisualLoop.bind()`。
+- `FlutterWright.start(autoStart: false)` + 第一帧后调 `FlutterWright.bind()`。
 
 ### exit 42 (HTTP 500): push failed
 
@@ -56,11 +56,11 @@ App 在启动。两选一:
 curl http://localhost:9123/routes   # 已注册的路由
 ```
 
-注册:`FlutterVisualLoop.routes.register('/your/route');`
+注册:`FlutterWright.routes.register('/your/route');`
 
 ### 页面切换但 UI 没刷新
 
-通常是 state 没刷。`Skill flutterwright "reset clearMock=true"`,然后重新 `goto`。
+通常是 state 没刷。`Skill flutter_wright "reset clearMock=true"`,然后重新 `goto`。
 
 ## `screenshot` 失败
 
@@ -89,7 +89,7 @@ adb shell wm density reset
 
 宿主 app 是 release/profile 构建(VM service 关闭),或 SDK < 0.2.0(没 `/reload` 端点 → 落到 404 → exit 32)。
 
-确认 `flutter run` 是 debug 模式(默认就是);确认 `pubspec.yaml` 里 `flutter_visual_loop` 版本 ≥ 0.2.0。
+确认 `flutter run` 是 debug 模式(默认就是);确认 `pubspec.yaml` 里 `flutter_wright_sdk` 版本 ≥ 0.2.0。
 
 ### exit 32 (其他 HTTP code)
 
@@ -105,12 +105,12 @@ adb shell wm density reset
 
 ```dart
 final mock = InMemoryMockDataProvider();
-await FlutterVisualLoop.start(mockProvider: mock);
+await FlutterWright.start(mockProvider: mock);
 ```
 
 ### Mock 值改了但 UI 没反应
 
-Repository/service 缓存了。`Skill flutterwright "reset clearMock=false"` + 重新 `goto`,新 mount 读新数据。
+Repository/service 缓存了。`Skill flutter_wright "reset clearMock=false"` + 重新 `goto`,新 mount 读新数据。
 
 ## `setViewport` 失败 / 任务结束后设备状态奇怪
 
@@ -127,7 +127,7 @@ adb shell wm size reset
 adb shell wm density reset
 ```
 
-App 卡在奇怪路由:`Skill flutterwright "reset clearMock=true"` 或 `adb shell am force-stop <pkg>` 重启。
+App 卡在奇怪路由:`Skill flutter_wright "reset clearMock=true"` 或 `adb shell am force-stop <pkg>` 重启。
 
 ## 平台限制 — "Android 上没问题,iOS 上不行"
 
@@ -154,14 +154,14 @@ v2 计划支持 iOS — 见 spec §10.2。
 
 ```bash
 cd packages/example
-flutter create . --platforms=android --org com.example.flutterwright
+flutter create . --platforms=android --org com.example.flutter_wright
 flutter pub get
 ```
 
 ### 第 2 步 — SDK 单元测试
 
 ```bash
-cd packages/flutter_visual_loop
+cd packages/flutter_wright_sdk
 flutter pub get
 flutter test
 ```
@@ -178,40 +178,40 @@ flutter run -d $(adb devices | awk 'NR>1 && $2=="device"{print $1; exit}')
 等到看见:
 
 ```
-[flutter_visual_loop] listening on http://127.0.0.1:9123
+[flutter_wright_sdk] listening on http://127.0.0.1:9123
 ```
 
 ### 第 4 步 — 端口转发 + 8 方法烟雾测试
 
-在 Claude Code 会话里(任何 cwd 都行,只要安装了 flutterwright skill):
+在 Claude Code 会话里(任何 cwd 都行,只要安装了 flutter_wright skill):
 
 ```
-Skill flutterwright "health"
+Skill flutter_wright "health"
 # → ok: device=<id> port=9123
 
-Skill flutterwright "goto /home"
+Skill flutter_wright "goto /home"
 # → {"ok":true,"route":"/home"}  设备应跳到 /home
 
-Skill flutterwright "screenshot /tmp/fw-smoke.png"
+Skill flutter_wright "screenshot /tmp/fw-smoke.png"
 # → captured: /tmp/fw-smoke.png (<size> bytes)
 
-Skill flutterwright "mock set key=order value={\"id\":\"X\",\"amount\":1.0}"
+Skill flutter_wright "mock set key=order value={\"id\":\"X\",\"amount\":1.0}"
 # → {"ok":true,"key":"order"}
 
-Skill flutterwright "goto /order/detail"
+Skill flutter_wright "goto /order/detail"
 # 设备应显示新的 order 数据
 
 # 改 example/lib/pages/home_page.dart 任一文字(比如"Hello" → "Hi")
-Skill flutterwright "reload"
+Skill flutter_wright "reload"
 # → reloaded   设备应反映改动
 
-Skill flutterwright "setViewport 1080 2400 480"
+Skill flutter_wright "setViewport 1080 2400 480"
 # → viewport: 1080x2400 @ 480dpi
 
-Skill flutterwright "reset clearMock=true"
+Skill flutter_wright "reset clearMock=true"
 # → {"ok":true,"clearedMock":true}
 
-Skill flutterwright "resetViewport"
+Skill flutter_wright "resetViewport"
 # → restored: size=<orig> density=<orig>
 ```
 

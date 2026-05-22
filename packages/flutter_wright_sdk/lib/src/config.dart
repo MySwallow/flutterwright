@@ -10,8 +10,8 @@ enum ScreenshotMode {
   external,
 }
 
-class VisualLoopConfig {
-  const VisualLoopConfig({
+class FlutterWrightConfig {
+  const FlutterWrightConfig({
     this.host = '127.0.0.1',
     this.port = 9123,
     this.enableInDebugOnly = true,
@@ -31,7 +31,7 @@ class VisualLoopConfig {
   final bool enableInDebugOnly;
 
   /// If true (default), `start()` binds immediately. Set false to defer
-  /// to a later `FlutterVisualLoop.bind()` call.
+  /// to a later `FlutterWright.bind()` call.
   final bool autoStart;
 
   /// See [ScreenshotMode].

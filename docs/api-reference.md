@@ -1,6 +1,6 @@
 # HTTP API 参考
 
-`flutter_visual_loop` 在 `127.0.0.1:9123`(可配置)上暴露一个小型的 JSON-over-HTTP API。Claude Code skill 用它,但任何能讲 HTTP 的客户端都能调。
+`flutter_wright_sdk` 在 `127.0.0.1:9123`(可配置)上暴露一个小型的 JSON-over-HTTP API。Claude Code skill 用它,但任何能讲 HTTP 的客户端都能调。
 
 ## 通用约定
 
@@ -9,7 +9,7 @@
 - **响应信封**:
   - 成功:`{"ok": true, ...}` (各 endpoint 额外字段不同)
   - 失败:`{"ok": false, "error": "<原因>"}`,HTTP 4xx/5xx
-- **Body 上限**:默认 1 MiB,通过 `VisualLoopConfig.maxBodyBytes` 配置。超过返回 HTTP 413。
+- **Body 上限**:默认 1 MiB,通过 `FlutterWrightConfig.maxBodyBytes` 配置。超过返回 HTTP 413。
 
 ## GET /health
 
@@ -17,7 +17,7 @@
 
 **Response 200**
 ```json
-{ "ok": true, "version": "0.1.0", "service": "flutter_visual_loop" }
+{ "ok": true, "version": "0.1.0", "service": "flutter_wright_sdk" }
 ```
 
 ## GET /routes
@@ -29,7 +29,7 @@
 { "ok": true, "routes": ["/", "/login", "/order/detail"] }
 ```
 
-> 只有调用过 `FlutterVisualLoop.routes.register('/x')` 或在 `start()` 的 `testRoutes:` 参数里传过的路由才会出现在这里。
+> 只有调用过 `FlutterWright.routes.register('/x')` 或在 `start()` 的 `testRoutes:` 参数里传过的路由才会出现在这里。
 
 ## POST /navigate
 
@@ -133,7 +133,7 @@
 ```
 
 **错误**
-- `501` — `FlutterVisualLoop.start()` 时没配 `MockDataProvider`
+- `501` — `FlutterWright.start()` 时没配 `MockDataProvider`
 - `400` — `key`/`enabled`/`action` 缺失或类型错
 
 ## GET /screenshot
@@ -147,16 +147,16 @@ Content-Type: image/png
 ```
 
 **错误**
-- `500` — 截图失败;宿主没用 `VisualLoopRoot` 包根
+- `500` — 截图失败;宿主没用 `FlutterWrightRoot` 包根
 - `501` — `screenshotMode = ScreenshotMode.external`(让你用 adb)
 
 ## 生命周期 API(纯 Dart 端,不走 HTTP)
 
 ```dart
-FlutterVisualLoop.start({...});   // 绑 server
-FlutterVisualLoop.bind();         // autoStart 是 false 时延后 bind
-FlutterVisualLoop.stop();         // 关 server
-FlutterVisualLoop.isRunning;      // bool
+FlutterWright.start({...});   // 绑 server
+FlutterWright.bind();         // autoStart 是 false 时延后 bind
+FlutterWright.stop();         // 关 server
+FlutterWright.isRunning;      // bool
 ```
 
 ## curl 实用集合

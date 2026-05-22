@@ -6,10 +6,10 @@ import 'config.dart';
 import 'handlers/handler.dart';
 import 'logger.dart';
 
-class VisualLoopHttpServer {
-  VisualLoopHttpServer({required this.config, required this.handlers});
+class FlutterWrightHttpServer {
+  FlutterWrightHttpServer({required this.config, required this.handlers});
 
-  final VisualLoopConfig config;
+  final FlutterWrightConfig config;
   final List<Handler> handlers;
 
   HttpServer? _server;

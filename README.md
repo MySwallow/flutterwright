@@ -4,20 +4,30 @@ Playwright 风格的 Flutter 设备自动化，通过 Claude Code skill 实现�
 
 一个 monorepo，包含：
 
-- 一个 **Claude Code skill**（`skills/flutterwright/`），暴露 8 个方法（goto / screenshot / reload / mock / setViewport / …），
-- 一个 **Dart SDK**（`packages/flutter_visual_loop/`），在任意 Flutter 应用内运行一个仅 debug 启用的 HTTP 控制平面，
+- 一个 **Claude Code skill**（`skills/flutter_wright/`），暴露 8 个方法（goto / screenshot / reload / mock / setViewport / …），
+- 一个 **Dart SDK**（`packages/flutter_wright_sdk/`），在任意 Flutter 应用内运行一个仅 debug 启用的 HTTP 控制平面，
 - 一个 **示例 Flutter 应用**（`packages/example/`），展示 SDK 集成方式，
 - **参考文档**（`docs/`）。
 
 ```
 flutterwright/
-├── skills/flutterwright/   <- Claude Code skill (SKILL.md + scripts)
+├── skills/flutter_wright/    <- Claude Code skill (SKILL.md + scripts)
 ├── packages/
-│   ├── flutter_visual_loop/  <- Dart SDK
+│   ├── flutter_wright_sdk/   <- Dart SDK
 │   └── example/              <- demo Flutter app
-├── docs/                   <- API ref / architecture / integration / troubleshooting
+├── docs/                     <- API ref / architecture / integration / troubleshooting
 └── ...
 ```
+
+> ## ⚠️ 重要：skill 和 SDK 必须配对工作
+>
+> `flutter_wright` skill 通过 HTTP 把跳转/截图/mock 等指令发到目标 Flutter app。**只有当目标 app 集成了 `flutter_wright_sdk` 并正在运行时，这些指令才会被接收和执行**。
+>
+> - 目标 app **未集成 SDK** → skill 调用永远是 `SDK unreachable`（连接被拒）。
+> - 目标 app **已集成但未运行** → 同上。
+> - SDK **正常运行** → skill 命令通过 `127.0.0.1:9123` 控制平面执行。
+>
+> 集成步骤见 [`docs/integration-guide.md`](docs/integration-guide.md)（人类版）或 [`docs/integration-guide-for-ai.md`](docs/integration-guide-for-ai.md)（AI 版）。
 
 ## 快速上手（5 分钟）
 
@@ -48,7 +58,7 @@ flutter run -d $(adb devices | awk 'NR>1 && $2=="device"{print $1; exit}')
 等待输出：
 
 ```
-[flutter_visual_loop] listening on http://127.0.0.1:9123
+[flutter_wright_sdk] listening on http://127.0.0.1:9123
 ```
 
 ### 3. 转发端口并验证
@@ -56,39 +66,39 @@ flutter run -d $(adb devices | awk 'NR>1 && $2=="device"{print $1; exit}')
 ```bash
 adb forward tcp:9123 tcp:9123
 curl http://localhost:9123/health
-# → {"ok":true,"version":"0.2.0","service":"flutter_visual_loop"}
+# → {"ok":true,"version":"0.2.0","service":"flutter_wright_sdk"}
 ```
 
 ### 4. 从 Claude Code 驱动应用
 
-在一个 Claude Code 会话中（cwd 任意；skill 位于仓库内 `skills/flutterwright/`）：
+在一个 Claude Code 会话中（cwd 任意；skill 位于仓库内 `skills/flutter_wright/`）：
 
 ```
-Skill flutterwright "health"
-Skill flutterwright "goto /order/detail args={\"id\":\"ORD-001\"}"
-Skill flutterwright "screenshot $CLAUDE_JOB_DIR/cur.png"
+Skill flutter_wright "health"
+Skill flutter_wright "goto /order/detail args={\"id\":\"ORD-001\"}"
+Skill flutter_wright "screenshot $CLAUDE_JOB_DIR/cur.png"
 ```
 
-完整方法参考见 [`skills/flutterwright/SKILL.md`](skills/flutterwright/SKILL.md)。
+完整方法参考见 [`skills/flutter_wright/SKILL.md`](skills/flutter_wright/SKILL.md)。
 
 ### 5. 将 SDK 集成进自己的 Flutter 应用
 
 ```dart
-import 'package:flutter_visual_loop/flutter_visual_loop.dart';
+import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FlutterVisualLoop.start(
+  await FlutterWright.start(
     testRoutes: const ['/home', '/order/detail', '/login'],
   );
-  runApp(VisualLoopRoot(child: const MyApp()));
+  runApp(FlutterWrightRoot(child: const MyApp()));
 }
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: FlutterVisualLoop.navigatorKey,
+      navigatorKey: FlutterWright.navigatorKey,
       onGenerateRoute: yourRouter,
     );
   }
@@ -103,7 +113,7 @@ class MyApp extends StatelessWidget {
 
 | 文档 | 内容 |
 |---|---|
-| [`skills/flutterwright/SKILL.md`](skills/flutterwright/SKILL.md) | 8 个方法（签名、退出码、示例） |
+| [`skills/flutter_wright/SKILL.md`](skills/flutter_wright/SKILL.md) | 8 个方法（签名、退出码、示例） |
 | [`docs/api-reference.md`](docs/api-reference.md) | SDK HTTP 协议 — 面向直接 curl 调用方与 SDK 贡献者 |
 | [`docs/architecture.md`](docs/architecture.md) | 分层、组件、安全约束 |
 | [`docs/integration-guide.md`](docs/integration-guide.md) | Dart 集成模式（10 种场景）— 面向人 |

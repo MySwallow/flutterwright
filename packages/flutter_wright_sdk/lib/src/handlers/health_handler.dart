@@ -16,7 +16,7 @@ class HealthHandler extends Handler {
     await ctx.request.writeJson(200, <String, Object?>{
       'ok': true,
       'version': version,
-      'service': 'flutter_visual_loop',
+      'service': 'flutter_wright_sdk',
     });
   }
 }

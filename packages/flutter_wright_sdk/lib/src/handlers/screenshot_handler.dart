@@ -28,7 +28,7 @@ class ScreenshotHandler extends Handler {
     if (bytes == null) {
       await ctx.request.writeError(
         500,
-        'failed to capture; wrap your app with VisualLoopRoot',
+        'failed to capture; wrap your app with FlutterWrightRoot',
       );
       return;
     }
