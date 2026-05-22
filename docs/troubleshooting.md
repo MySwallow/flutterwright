@@ -1,6 +1,6 @@
 # 故障排查
 
-按 "现象在哪一层暴露" 分组。所有方法名为 flutter_wright v1 命名(`health/goto/screenshot/reload/setViewport/resetViewport/mock/reset`)。
+按 "现象在哪一层暴露" 分组。所有方法名为 flutter-wright v1 命名(`health/goto/screenshot/reload/setViewport/resetViewport/mock/reset`)。
 
 ## `health` 失败
 
@@ -60,7 +60,7 @@ curl http://localhost:9123/routes   # 已注册的路由
 
 ### 页面切换但 UI 没刷新
 
-通常是 state 没刷。`Skill flutter_wright "reset clearMock=true"`,然后重新 `goto`。
+通常是 state 没刷。`Skill flutter-wright "reset clearMock=true"`,然后重新 `goto`。
 
 ## `screenshot` 失败
 
@@ -110,7 +110,7 @@ await FlutterWright.start(mockProvider: mock);
 
 ### Mock 值改了但 UI 没反应
 
-Repository/service 缓存了。`Skill flutter_wright "reset clearMock=false"` + 重新 `goto`,新 mount 读新数据。
+Repository/service 缓存了。`Skill flutter-wright "reset clearMock=false"` + 重新 `goto`,新 mount 读新数据。
 
 ## `setViewport` 失败 / 任务结束后设备状态奇怪
 
@@ -127,7 +127,7 @@ adb shell wm size reset
 adb shell wm density reset
 ```
 
-App 卡在奇怪路由:`Skill flutter_wright "reset clearMock=true"` 或 `adb shell am force-stop <pkg>` 重启。
+App 卡在奇怪路由:`Skill flutter-wright "reset clearMock=true"` 或 `adb shell am force-stop <pkg>` 重启。
 
 ## 平台限制 — "Android 上没问题,iOS 上不行"
 
@@ -183,35 +183,35 @@ flutter run -d $(adb devices | awk 'NR>1 && $2=="device"{print $1; exit}')
 
 ### 第 4 步 — 端口转发 + 8 方法烟雾测试
 
-在 Claude Code 会话里(任何 cwd 都行,只要安装了 flutter_wright skill):
+在 Claude Code 会话里(任何 cwd 都行,只要安装了 flutter-wright skill):
 
 ```
-Skill flutter_wright "health"
+Skill flutter-wright "health"
 # → ok: device=<id> port=9123
 
-Skill flutter_wright "goto /home"
+Skill flutter-wright "goto /home"
 # → {"ok":true,"route":"/home"}  设备应跳到 /home
 
-Skill flutter_wright "screenshot /tmp/fw-smoke.png"
+Skill flutter-wright "screenshot /tmp/fw-smoke.png"
 # → captured: /tmp/fw-smoke.png (<size> bytes)
 
-Skill flutter_wright "mock set key=order value={\"id\":\"X\",\"amount\":1.0}"
+Skill flutter-wright "mock set key=order value={\"id\":\"X\",\"amount\":1.0}"
 # → {"ok":true,"key":"order"}
 
-Skill flutter_wright "goto /order/detail"
+Skill flutter-wright "goto /order/detail"
 # 设备应显示新的 order 数据
 
 # 改 example/lib/pages/home_page.dart 任一文字(比如"Hello" → "Hi")
-Skill flutter_wright "reload"
+Skill flutter-wright "reload"
 # → reloaded   设备应反映改动
 
-Skill flutter_wright "setViewport 1080 2400 480"
+Skill flutter-wright "setViewport 1080 2400 480"
 # → viewport: 1080x2400 @ 480dpi
 
-Skill flutter_wright "reset clearMock=true"
+Skill flutter-wright "reset clearMock=true"
 # → {"ok":true,"clearedMock":true}
 
-Skill flutter_wright "resetViewport"
+Skill flutter-wright "resetViewport"
 # → restored: size=<orig> density=<orig>
 ```
 

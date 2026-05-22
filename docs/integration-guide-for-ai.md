@@ -1,7 +1,7 @@
 # flutter_wright_sdk SDK 接入指引(AI 专用)
 
 > **受众**:Claude / Cursor / Copilot 等 AI 编码助手。
-> **任务**:把 `flutter_wright_sdk` SDK 集成到一个**已存在**的 Flutter app,使得它可被 `flutter_wright` skill 远程驱动。
+> **任务**:把 `flutter_wright_sdk` SDK 集成到一个**已存在**的 Flutter app,使得它可被 `flutter-wright` skill 远程驱动。
 >
 > 给人类看的版本在 [`integration-guide.md`](./integration-guide.md)。
 
@@ -280,11 +280,11 @@ class UserRepo {
 
 ## 7. Step 6:Android 平台要求
 
-flutter_wright v1 是 **Android-only**。检查 `android/app/build.gradle` 的 `minSdkVersion` ≥ 21(已是 Flutter 默认)。
+flutter-wright v1 是 **Android-only**。检查 `android/app/build.gradle` 的 `minSdkVersion` ≥ 21(已是 Flutter 默认)。
 
 **不需要**改 `AndroidManifest.xml`:HTTP server 绑在 `127.0.0.1`(loopback),不需要 `INTERNET` permission(虽然多数 app 已有)。
 
-**iOS**:SDK 代码能编但 flutter_wright v1 不驱动 iOS。若 host app 同时跑 iOS,不影响。
+**iOS**:SDK 代码能编但 flutter-wright v1 不驱动 iOS。若 host app 同时跑 iOS,不影响。
 
 ## 8. Step 7:验证
 
@@ -351,7 +351,7 @@ curl -s -X POST http://127.0.0.1:9123/mock \
 | ❌ 把 SDK 加到 `dev_dependencies` | 生产代码引用 `FlutterWright.navigatorKey` 会编译失败 | 必须 `dependencies` |
 | ❌ 改 SDK package 名 / 用 path 但忘了写 `pubspec_overrides.yaml` | Dart pub 解析失败 | 按 Step 1 的 git 依赖写法 |
 | ❌ 在 `flutter_test` 里调 `start()` 不跳过 | 测试进程绑 9123 端口跟主 app 冲突 | 用 `Platform.environment.containsKey('FLUTTER_TEST')` 守卫(参考人类版指引 §9) |
-| ❌ skill 调用前忘了 `adb forward tcp:9123 tcp:9123` | curl 全部 connection refused | flutter_wright skill 自动做了,但手动 curl 调试时记得 |
+| ❌ skill 调用前忘了 `adb forward tcp:9123 tcp:9123` | curl 全部 connection refused | flutter-wright skill 自动做了,但手动 curl 调试时记得 |
 
 ## 10. 失败排查 recipe
 
@@ -392,8 +392,8 @@ Mock 数据接入:<yes / no>
   [✓] POST /mock(若适用) → 200
 
 下一步:
-  - 在 Claude Code 里运行 `Skill flutter_wright "health"` 验证 skill 端
-  - 跑业务流: `Skill flutter_wright "goto /home"` 等
+  - 在 Claude Code 里运行 `Skill flutter-wright "health"` 验证 skill 端
+  - 跑业务流: `Skill flutter-wright "goto /home"` 等
 ```
 
 ---

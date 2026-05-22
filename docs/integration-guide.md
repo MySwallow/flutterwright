@@ -22,7 +22,7 @@ dependencies:
 ```yaml
 dependencies:
   flutter_wright_sdk:
-    path: ../flutter_wright/packages/flutter_wright_sdk
+    path: ../flutter-wright/packages/flutter_wright_sdk
 ```
 
 ## 2. 连接 `main()`

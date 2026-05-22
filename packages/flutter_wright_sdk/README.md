@@ -1,9 +1,9 @@
 # flutter_wright_sdk
 
-> 作为 [flutter_wright](../../README.md) monorepo 的一部分发布。
+> 作为 [flutter-wright](../../README.md) monorepo 的一部分发布。
 
 为 Flutter app 提供的"仅 debug 启用"的 HTTP 控制平面。给配套的
-[`flutter_wright`](../../skills/flutter_wright/SKILL.md) Claude Code skill 用,
+[`flutter-wright`](../../skills/flutter-wright/SKILL.md) Claude Code skill 用,
 但任何能讲 HTTP 的客户端(curl、Postman、你自己的脚本)都能调。
 
 > **Release 构建里这个包是 no-op。** `start()` 直接返回,不绑任何 socket。可以放心留在生产代码里。

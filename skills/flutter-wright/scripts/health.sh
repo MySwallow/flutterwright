@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# health.sh — flutter_wright health check: adb, device, port forward, SDK reachability.
+# health.sh — flutter-wright health check: adb, device, port forward, SDK reachability.
 # Exits non-zero with a single line "ERR: <reason>" on failure.
 
 set -euo pipefail
