@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # reload.sh — Flutter hot reload via SDK /reload endpoint (vm_service.reloadSources).
-# Requires SDK >= 0.2.0 in the host app. No fifo / no stdin handling.
+# Note: under `flutter run` the DDS may occupy the VM service and reject the
+# self-connect (503/exit 31); pressing `r` in the flutter run console is the
+# reliable path. This is best-effort for unattended use.
 # Usage: reload.sh
 
 set -euo pipefail
@@ -22,7 +24,7 @@ HTTP_CODE=$(curl -s -o "$TMP" -w "%{http_code}" -X POST \
 case "$HTTP_CODE" in
   200) echo "reloaded";;
   000) echo "ERR: SDK unreachable at 127.0.0.1:$PORT" >&2; exit 30;;
-  503) echo "ERR: VM service not available (release build? or SDK < 0.2.0)" >&2; cat "$TMP" >&2; exit 31;;
+  503) echo "ERR: VM service not available (release build? or DDS occupies it under flutter run — press 'r' there instead)" >&2; cat "$TMP" >&2; exit 31;;
   *)   echo "ERR: /reload returned $HTTP_CODE" >&2; cat "$TMP" >&2; exit 32;;
 esac
 

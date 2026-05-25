@@ -10,13 +10,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_wright_sdk:
-    path: ../flutter_wright_sdk
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  # Automation SDK: debug-only, imported solely from dev/ + test/.
+  # Production lib/ has zero reference to it, so release builds exclude it.
+  flutter_wright_sdk:
+    path: ../flutter_wright_sdk
 
 flutter:
   uses-material-design: true

@@ -1,10 +1,10 @@
 # 故障排查
 
-按 "现象在哪一层暴露" 分组。所有方法名为 flutter-wright v1 命名(`health/goto/screenshot/reload/setViewport/resetViewport/mock/reset`)。
+按 "现象在哪一层暴露" 分组。所有方法名为 flutter-wright v1 命名(`health/goto/screenshot/reload/setViewport/resetViewport/reset`)。
 
 ## `health` 失败
 
-> **退出码 10-13 也可能从 `goto` / `screenshot` / `mock` / `reload` / `reset` / `setViewport` 的首次调用触发** —— 这些方法在本 job 首次调用时会自动跑同一套环境检查（[SKILL.md §环境检查（自动）](../skills/flutter-wright/SKILL.md#环境检查自动)），失败统一以 health 段退出码退出。下面排查步骤对显式 `health` 和隐式触发都适用。
+> **退出码 10-13 也可能从 `goto` / `screenshot` / `reload` / `reset` / `setViewport` 的首次调用触发** —— 这些方法在本 job 首次调用时会自动跑同一套环境检查（[SKILL.md §环境检查（自动）](../skills/flutter-wright/SKILL.md#环境检查自动)），失败统一以 health 段退出码退出。下面排查步骤对显式 `health` 和隐式触发都适用。
 
 ### exit 10:adb 未安装
 
@@ -62,7 +62,7 @@ curl http://localhost:9123/routes   # 已注册的路由
 
 ### 页面切换但 UI 没刷新
 
-通常是 state 没刷。`Skill flutter-wright "reset clearMock=true"`,然后重新 `goto`。
+通常是 state 没刷。`Skill flutter-wright "reset"` 回根,然后重新 `goto`。
 
 ## `screenshot` 失败
 
@@ -89,30 +89,15 @@ adb shell wm density reset
 
 ### exit 31 (HTTP 503): VM service not available
 
-宿主 app 是 release/profile 构建(VM service 关闭),或 SDK < 0.2.0(没 `/reload` 端点 → 落到 404 → exit 32)。
+`/reload` 靠 SDK 进程内自连 VM service,但 `flutter run` 的 DDS 会独占 VM service,导致自连被拒;release/profile 构建则根本没开 VM service。
 
-确认 `flutter run` 是 debug 模式(默认就是);确认 `pubspec.yaml` 里 `flutter_wright_sdk` 版本 ≥ 0.2.0。
+**最可靠的热重载是在 `flutter run` 控制台直接按 `r`** —— SDK 的 `/reload` 只是"无人值守"场景下的尽力而为。确认 `flutter run` 是 debug 模式(默认就是)。
 
 ### exit 32 (其他 HTTP code)
 
 可能是 reload 本身失败(语法错、`main()` 改了需 hot restart)。看 `flutter run` 控制台的 dart compile error。
 
 需要 hot restart 时:目前 v1 没暴露,临时 workaround 是 `adb shell am force-stop <pkg>` + `flutter run` 重启。
-
-## `mock` 失败
-
-### exit 55 (HTTP 501): no MockDataProvider configured
-
-宿主 `start()` 没传 `mockProvider`。加:
-
-```dart
-final mock = InMemoryMockDataProvider();
-await FlutterWright.start(mockProvider: mock);
-```
-
-### Mock 值改了但 UI 没反应
-
-Repository/service 缓存了。`Skill flutter-wright "reset clearMock=false"` + 重新 `goto`,新 mount 读新数据。
 
 ## `setViewport` 失败 / 任务结束后设备状态奇怪
 
@@ -129,7 +114,7 @@ adb shell wm size reset
 adb shell wm density reset
 ```
 
-App 卡在奇怪路由:`Skill flutter-wright "reset clearMock=true"` 或 `adb shell am force-stop <pkg>` 重启。
+App 卡在奇怪路由:`Skill flutter-wright "reset"` 或 `adb shell am force-stop <pkg>` 重启。
 
 ## 平台限制 — "Android 上没问题,iOS 上不行"
 
@@ -170,11 +155,12 @@ flutter test
 
 期望:`All tests passed!`(含 `reload_handler_test`)。
 
-### 第 3 步 — 启动 example app(无 fifo)
+### 第 3 步 — 启动 example app
 
 ```bash
 cd packages/example
-flutter run -d $(adb devices | awk 'NR>1 && $2=="device"{print $1; exit}')
+# 注意 -t:示例的 lib/main.dart 是零 SDK 的生产入口,debug 入口在 dev/main_dev.dart
+flutter run -d $(adb devices | awk 'NR>1 && $2=="device"{print $1; exit}') -t dev/main_dev.dart
 ```
 
 等到看见:
@@ -183,7 +169,7 @@ flutter run -d $(adb devices | awk 'NR>1 && $2=="device"{print $1; exit}')
 [flutter_wright_sdk] listening on http://127.0.0.1:9123
 ```
 
-### 第 4 步 — 端口转发 + 8 方法烟雾测试
+### 第 4 步 — 端口转发 + 方法烟雾测试
 
 在 Claude Code 会话里(任何 cwd 都行,只要安装了 flutter-wright skill):
 
@@ -197,11 +183,8 @@ Skill flutter-wright "goto /home"
 Skill flutter-wright "screenshot /tmp/fw-smoke.png"
 # → captured: /tmp/fw-smoke.png (<size> bytes)
 
-Skill flutter-wright "mock set key=order value={\"id\":\"X\",\"amount\":1.0}"
-# → {"ok":true,"key":"order"}
-
 Skill flutter-wright "goto /order/detail"
-# 设备应显示新的 order 数据
+# 设备应显示 order 详情页
 
 # 改 example/lib/pages/home_page.dart 任一文字(比如"Hello" → "Hi")
 Skill flutter-wright "reload"
@@ -210,8 +193,8 @@ Skill flutter-wright "reload"
 Skill flutter-wright "setViewport 1080 2400 480"
 # → viewport: 1080x2400 @ 480dpi
 
-Skill flutter-wright "reset clearMock=true"
-# → {"ok":true,"clearedMock":true}
+Skill flutter-wright "reset"
+# → {"ok":true}
 
 Skill flutter-wright "resetViewport"
 # → restored: size=<orig> density=<orig>

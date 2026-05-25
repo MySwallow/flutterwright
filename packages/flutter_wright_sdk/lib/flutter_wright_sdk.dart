@@ -4,8 +4,8 @@
 library flutter_wright_sdk;
 
 export 'src/config.dart' show FlutterWrightConfig, ScreenshotMode;
-export 'src/mock_provider.dart'
-    show MockDataProvider, InMemoryMockDataProvider;
+export 'src/navigation_adapter.dart'
+    show NavigationAdapter, NavigatorKeyAdapter, CallbackNavigationAdapter;
 export 'src/route_registry.dart' show RouteRegistry;
 export 'src/screenshot.dart' show FlutterWrightRoot;
 export 'src/flutter_wright.dart' show FlutterWright;

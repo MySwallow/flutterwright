@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# reset.sh — navigator pop to root, optionally clearing mock data, via SDK /reset.
-# Usage: reset.sh [clearMock=<true|false>]
-#   reset.sh                       # defaults to clearMock=true
-#   reset.sh clearMock=false       # keep mock data, just pop navigator
+# reset.sh — navigator pop to root, via SDK /reset.
+# Usage: reset.sh
 
 set -euo pipefail
 
@@ -12,15 +10,10 @@ fw_ensure_health
 
 PORT="${VL_PORT:-9123}"
 
-CLEAR_MOCK="true"
-for arg in "$@"; do
-  case "$arg" in
-    clearMock=*) CLEAR_MOCK="${arg#clearMock=}";;
-    *) echo "ERR: unknown arg '$arg'" >&2; exit 70;;
-  esac
-done
-
-PAYLOAD=$(printf '{"clearMock":%s}' "$CLEAR_MOCK")
+if [ "$#" -gt 0 ]; then
+  echo "ERR: reset.sh takes no arguments (got '$*')" >&2
+  exit 70
+fi
 
 TMP=$(mktemp -t fw-reset.XXXXXX)
 trap 'rm -f "$TMP"' EXIT
@@ -28,7 +21,7 @@ trap 'rm -f "$TMP"' EXIT
 HTTP_CODE=$(curl -s -o "$TMP" -w "%{http_code}" -X POST \
   "http://127.0.0.1:$PORT/reset" \
   -H 'content-type: application/json' \
-  -d "$PAYLOAD") || HTTP_CODE="000"
+  -d '{}') || HTTP_CODE="000"
 
 case "$HTTP_CODE" in
   200) cat "$TMP"; echo;;

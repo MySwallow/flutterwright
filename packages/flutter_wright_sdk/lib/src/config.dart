@@ -21,7 +21,7 @@ class FlutterWrightConfig {
   });
 
   /// Bind address. Keep `127.0.0.1` unless you know what you're doing —
-  /// `0.0.0.0` exposes mock-control to the whole LAN.
+  /// `0.0.0.0` exposes the control plane to the whole LAN.
   final String host;
 
   /// TCP port.

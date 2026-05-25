@@ -1,12 +1,11 @@
-import 'package:flutter/widgets.dart';
-
 import '../logger.dart';
+import '../navigation_adapter.dart';
 import 'handler.dart';
 
 class NavigateHandler extends Handler {
-  NavigateHandler(this.navigatorKey);
+  NavigateHandler(this.adapter);
 
-  final GlobalKey<NavigatorState> navigatorKey;
+  final NavigationAdapter adapter;
 
   @override
   String get path => '/navigate';
@@ -24,18 +23,13 @@ class NavigateHandler extends Handler {
     final args = ctx.json['args'];
     final popUntilRoot = ctx.json['popUntilRoot'] != false;
 
-    final nav = navigatorKey.currentState;
-    if (nav == null) {
+    if (!adapter.isReady) {
       await ctx.request.writeError(503, 'navigator not ready');
       return;
     }
 
     try {
-      if (popUntilRoot) {
-        nav.popUntil((r) => r.isFirst);
-      }
-      // ignore: unawaited_futures
-      nav.pushNamed(route, arguments: args);
+      await adapter.navigate(route, args: args, popUntilRoot: popUntilRoot);
       vlLog('navigated to $route');
       await ctx.request.writeOk(<String, Object?>{'route': route});
     } catch (e, st) {

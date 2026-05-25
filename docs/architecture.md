@@ -34,7 +34,7 @@ flutter-wright 是 monorepo,既是 Claude Code skill,也拥有 `flutter_wright_s
 |  Host Flutter app + flutter_wright_sdk SDK |
 |  - HTTP server on 127.0.0.1:9123     |
 |  - /health /routes /navigate /reset  |
-|  - /mock /screenshot /reload (新)    |
+|  - /screenshot /reload               |
 +--------------------------------------+
 ```
 
@@ -42,18 +42,18 @@ flutter-wright 是 monorepo,既是 Claude Code skill,也拥有 `flutter_wright_s
 
 ### SDK (`packages/flutter_wright_sdk`)
 
-- **`FlutterWright`** 门面 — start/stop,暴露 `navigatorKey`、`routes`。
+- **`FlutterWright`** 门面 — start/stop,暴露 `navigatorKey`、`routes`;`start(navigationAdapter:)` 注入路由适配器。
 - **`FlutterWrightHttpServer`** — `dart:io HttpServer` 绑 `127.0.0.1:9123`(可配置),按 `path + method` 分发请求给 handler。
 - **Handlers** — 每个 endpoint 一个文件,继承 `Handler` 抽象基类,通过 `ctx.request.writeJson/writeOk/writeError` 写响应。
-- **`RouteRegistry`** — 包装宿主 app 的命名路由表;`GET /routes` 列出注册的路由。
-- **`MockDataProvider`** — 宿主实现的接口。默认提供 `InMemoryMockDataProvider`。SDK 自身不读 mock 数据 — 只把控制命令路由给 provider。
+- **`NavigationAdapter`** — 把 `/navigate`、`/reset` 与路由栈解耦。`NavigatorKeyAdapter`(默认,命名路由)/ `CallbackNavigationAdapter`(GoRouter、GetX 等任意栈)。
+- **`RouteRegistry`** — 宿主声明的可发现路由表;`GET /routes` 列出注册的路由。
 - **`FlutterWrightRoot`** — 可选 Widget 包装,让 `/screenshot` 可靠工作(提供 `RepaintBoundary`)。
-- **`ReloadHandler` (0.2.0+)** — 调 `vm_service.reloadSources` 触发本进程的 Flutter hot reload。
+- **`ReloadHandler`** — 调 `vm_service.reloadSources` 触发本进程的 Flutter hot reload(在 `flutter run` + DDS 下可能受限,见 troubleshooting)。
 
 ### Skill (`skills/flutter-wright`)
 
-- **`SKILL.md`** — 唯一对外接口,Playwright-style 8 methods 定义 + dispatch convention。
-- **`scripts/`** — 8 个 bash 脚本(`health.sh / goto.sh / screenshot.sh / reload.sh / set_viewport.sh / reset_viewport.sh / mock.sh / reset.sh`),封装 adb / curl / printf 细节。
+- **`SKILL.md`** — 唯一对外接口,Playwright-style 7 methods 定义 + dispatch convention。
+- **`scripts/`** — 7 个 bash 脚本(`health.sh / goto.sh / screenshot.sh / reload.sh / set_viewport.sh / reset_viewport.sh / reset.sh`),封装 adb / curl / printf 细节。
 
 ## 双仓库职责
 

@@ -4,7 +4,7 @@
 
 ## 通用约定
 
-- **绑定地址**:默认 `127.0.0.1`。**不要**在共享网络里绑 `0.0.0.0` — mock 控制没有认证。
+- **绑定地址**:默认 `127.0.0.1`。**不要**在共享网络里绑 `0.0.0.0` — 控制面没有认证。
 - **Content-Type**:带 body 的请求必须用 `application/json`。JSON 解析失败会被静默当作 `{}`。
 - **响应信封**:
   - 成功:`{"ok": true, ...}` (各 endpoint 额外字段不同)
@@ -17,7 +17,7 @@
 
 **Response 200**
 ```json
-{ "ok": true, "version": "0.1.0", "service": "flutter_wright_sdk" }
+{ "ok": true, "version": "0.4.0", "service": "flutter_wright_sdk" }
 ```
 
 ## GET /routes
@@ -33,7 +33,9 @@
 
 ## POST /navigate
 
-往 navigator push 一个命名路由。
+跳转到一个路由。具体怎么跳由宿主配置的 `NavigationAdapter` 决定 —— 默认
+`NavigatorKeyAdapter` 走 `Navigator.pushNamed`(命名路由);GoRouter / GetX 等
+经 `CallbackNavigationAdapter` 走 `router.go` / `Get.toNamed`(见集成指南第 6 节)。
 
 **Request body**
 ```json
@@ -46,9 +48,9 @@
 
 | 字段           | 类型     | 默认值  | 说明                                          |
 |----------------|----------|---------|-----------------------------------------------|
-| `route`        | string   | —       | 必填。传给 `Navigator.pushNamed`。            |
-| `args`         | 任意 JSON | `null`  | 作为 `arguments` 传给路由。                   |
-| `popUntilRoot` | bool     | `true`  | push 前先 pop 到 root。防止循环之间状态污染。 |
+| `route`        | string   | —       | 必填。路由名 / URL,交给 adapter。            |
+| `args`         | 任意 JSON | `null`  | 作为路由参数 / `extra` / `arguments` 传入。   |
+| `popUntilRoot` | bool     | `true`  | 跳转前先回到 root。防止循环之间状态污染。     |
 
 **Response 200**
 ```json
@@ -57,26 +59,22 @@
 
 **错误**
 - `400` — 缺少 `route`
-- `503` — `navigatorKey.currentState` 为 null(app 还没挂载)
-- `500` — push 抛了异常(路由不在 `onGenerateRoute`、args 类型转换失败等)
+- `503` — adapter 未就绪(`NavigatorKeyAdapter`:`navigatorKey.currentState` 为 null,app 还没挂载;`CallbackNavigationAdapter`:`readiness` 返回 false)
+- `500` — 跳转抛了异常(路由未注册、args 类型转换失败等)
 
 ## POST /reset
 
-把 navigator pop 到 root。可选清空 mock 状态。
+把 navigator pop 到 root(经 `NavigationAdapter.reset()`)。无请求参数。
 
-**Request body**
-```json
-{ "clearMock": true }
-```
-
-| 字段        | 类型 | 默认值  | 说明                              |
-|-------------|------|---------|-----------------------------------|
-| `clearMock` | bool | `false` | 为 true 时调用 `mockProvider.reset()` |
+**Request body:** 无(或空 `{}`)。
 
 **Response 200**
 ```json
-{ "ok": true, "clearedMock": true }
+{ "ok": true }
 ```
+
+**错误**
+- `500` — adapter 的 reset 抛了异常
 
 ## POST /reload
 
@@ -90,51 +88,10 @@
 ```
 
 **错误**
-- `503` — VM service 未在本进程开启(release/profile 构建);或 SDK < 0.2.0(端点尚不存在,会落到 404)
+- `503` — VM service 不可用:release/profile 构建未开,或 `flutter run` 的 DDS 独占了它(此时优先在 `flutter run` 控制台按 `r`)
 - `500` — `reloadSources` 失败(常见:语法错误、`main()` 改了需 hot restart)
 
 实现:`ReloadHandler` 用 `dart:developer Service.getInfo()` 拿本进程 VM service URI,再用 `package:vm_service` 连回自己,对 main isolate 调 `reloadSources`。
-
-## POST /mock
-
-控制 mock 数据。5 种 action:
-
-### action: enable
-```json
-{ "action": "enable", "enabled": true }
-```
-全局开关 mock 模式。Response: `{ "ok": true, "enabled": true }`。
-
-### action: set
-```json
-{ "action": "set", "key": "user", "value": { "name": "Alice" } }
-```
-写入一个 key。Response: `{ "ok": true, "key": "user" }`。
-
-### action: get
-```json
-{ "action": "get", "key": "user" }
-```
-读一个 key。Response: `{ "ok": true, "key": "user", "value": ... }`。
-
-### action: reset
-```json
-{ "action": "reset" }
-```
-清空所有 key,还原初始的 enabled 标志。Response: `{ "ok": true, "reset": true }`。
-
-### action: list
-```json
-{ "action": "list" }
-```
-查看当前状态。Response:
-```json
-{ "ok": true, "enabled": true, "keys": ["user", "order"] }
-```
-
-**错误**
-- `501` — `FlutterWright.start()` 时没配 `MockDataProvider`
-- `400` — `key`/`enabled`/`action` 缺失或类型错
 
 ## GET /screenshot
 
@@ -173,23 +130,13 @@ curl -sf -X POST http://localhost:9123/navigate \
   -H 'content-type: application/json' \
   -d '{"route":"/order/detail","args":{"id":"ORD-001"}}'
 
-# 4. 设 mock 后再跳转
-curl -sf -X POST http://localhost:9123/mock \
-  -H 'content-type: application/json' \
-  -d '{"action":"set","key":"order","value":{"id":"X","amount":1.0}}'
-
-curl -sf -X POST http://localhost:9123/navigate \
-  -H 'content-type: application/json' \
-  -d '{"route":"/order/detail"}'
-
-# 5. 重置
+# 4. 重置(pop 回根)
 curl -sf -X POST http://localhost:9123/reset \
-  -H 'content-type: application/json' \
-  -d '{"clearMock":true}'
+  -H 'content-type: application/json' -d '{}'
 
-# 6. 通过 SDK 截图(仅 Flutter 渲染树)
+# 5. 通过 SDK 截图(仅 Flutter 渲染树)
 curl -sf http://localhost:9123/screenshot -o cur.png
 
-# 7. 通过 adb 截图(完整设备,做视觉对齐时推荐)
+# 6. 通过 adb 截图(完整设备,做视觉对齐时推荐)
 adb exec-out screencap -p > cur.png
 ```

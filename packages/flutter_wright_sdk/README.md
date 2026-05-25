@@ -10,15 +10,19 @@
 
 ## 安装
 
+推荐放 `dev_dependencies`(配合独立 debug 入口,生产 `lib/` 零 SDK 引用、release 零残留):
+
 ```yaml
-dependencies:
+dev_dependencies:
   flutter_wright_sdk:
     git:
       url: https://github.com/MySwallow/flutterwright
       path: packages/flutter_wright_sdk
 ```
 
-## 集成(3 行)
+> 图省事也可放 `dependencies` 直接在 `lib/main.dart` 里 import —— release 是 no-op,但 SDK 仍被编进生产包。两种范式详见 [`docs/integration-guide.md`](../../docs/integration-guide.md);`packages/example` 已按 dev_dependencies 范式组织。
+
+## 集成(3 行,图省事路径)
 
 ```dart
 import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
@@ -54,26 +58,22 @@ await FlutterWright.start(
 );
 ```
 
-## 接入 Mock 数据
+## 不同路由架构(GoRouter / GetX)
+
+第 3 步的 `navigatorKey` 只适用 Navigator 1.0 命名路由。其它栈给 `start()` 传 `CallbackNavigationAdapter`,SDK 只回调你的闭包:
 
 ```dart
-final mock = InMemoryMockDataProvider();
-mock.set('user', {'name': 'Alice'});
+// GoRouter
+await FlutterWright.start(navigationAdapter: CallbackNavigationAdapter(
+  onNavigate: (route, args, _) => router.go(route, extra: args),
+  onReset: () => router.go('/'),
+));
 
-await FlutterWright.start(mockProvider: mock);
-
-// 在你的 repository 里:
-class UserRepo {
-  UserRepo(this._mock);
-  final MockDataProvider _mock;
-
-  Future<User> fetch() async {
-    if (_mock.enabled) {
-      return User.fromJson(_mock.get('user') as Map<String, dynamic>);
-    }
-    return realApiCall();
-  }
-}
+// GetX
+await FlutterWright.start(navigationAdapter: CallbackNavigationAdapter(
+  onNavigate: (route, args, _) => Get.toNamed(route, arguments: args),
+  onReset: () => Get.until((r) => r.isFirst),
+));
 ```
 
 ## HTTP API
@@ -83,8 +83,8 @@ class UserRepo {
 | GET    | /health     | —                                                             | `{"ok":true,"version":"..."}`     |
 | GET    | /routes     | —                                                             | `{"ok":true,"routes":[...]}`      |
 | POST   | /navigate   | `{"route":"/x","args":{...},"popUntilRoot":true}`             | `{"ok":true,"route":"/x"}`        |
-| POST   | /reset      | `{"clearMock":true}`                                          | `{"ok":true,"clearedMock":true}`  |
-| POST   | /mock       | `{"action":"set"\|"get"\|"reset"\|"enable"\|"list","key":"k","value":...,"enabled":true}` | 依 action 不同 |
+| POST   | /reset      | `{}`                                                          | `{"ok":true}`                     |
+| POST   | /reload     | —                                                             | `{"ok":true}`                     |
 | GET    | /screenshot | —                                                             | `image/png` 字节(mode=flutter 时) |
 
 所有错误响应统一格式:`{"ok":false,"error":"..."}`。

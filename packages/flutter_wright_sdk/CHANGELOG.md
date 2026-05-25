@@ -1,5 +1,48 @@
 # 更新日志
 
+## 0.4.0 - 2026-05-25
+
+> **破坏性变更。** 不保证低版本兼容。
+
+### 移除
+- **整个 mock 能力**:`MockDataProvider`、`InMemoryMockDataProvider`、`POST /mock`
+  端点、`FlutterWright.start(mockProvider:)` 参数、`FlutterWright.mockProvider` getter
+  全部删除。理由:让 `/mock` 真正改 UI 需要宿主把 provider 接进 repository/数据层,
+  对大部分真实项目改动量太大、几乎没人会接入 —— 属伪需求。SDK 聚焦真正低成本、
+  架构无关的能力(navigate / screenshot / routes / reset / reload / health)。
+  - 配套移除 skill 的 `mock` 方法(`scripts/mock.sh`)与 `reset` 的 `clearMock` 参数;
+    `POST /reset` 现在只接受空 body、只把 navigator pop 回根。
+
+### 变更
+- `ResetHandler` 不再持有 mock,只驱动 `NavigationAdapter.reset()`。
+- 示例 app 去掉 mock 桥接(`DataStore` / `DevDataStore`),`dev/main_dev.dart` 复用
+  `lib/app.dart` 的 `createApp()` 工厂,不再重复 app 启动逻辑(改善 dev 入口可维护性)。
+
+## 0.3.0 - 2026-05-25
+
+### 新增
+- **可插拔导航(`NavigationAdapter`)**:`/navigate` 与 `/reset` 不再硬编码
+  Navigator 1.0 的 `pushNamed`/`popUntil`,改为经 `NavigationAdapter` 适配,
+  从而**路由架构无关**(Navigator 1.0 / GoRouter / GetX / auto_route 等)。
+  - `NavigatorKeyAdapter` —— 默认实现(命名路由,行为同旧版)。
+  - `CallbackNavigationAdapter` —— 逃生舱:宿主提供 `onNavigate`/`onReset`
+    两个闭包,适配 GoRouter `router.go`、GetX `Get.toNamed` 等任意栈。
+  - `FlutterWright.start` 新增可选参数 `navigationAdapter`;不传时默认
+    `NavigatorKeyAdapter(navigatorKey)`,**完全向后兼容**。
+
+### 变更
+- 推荐集成方式改为 **`dev_dependencies` + 独立 debug 入口**(`dev/main_dev.dart`),
+  使生产 `lib/` 对 SDK 零引用、release 构建零残留。`packages/example` 已按此范式重构
+  (mock 经 app 本地 `DataStore` 接口解耦,`DevDataStore` 在 `dev/` 桥接 SDK 的
+  `MockDataProvider`)。详见 `docs/integration-guide.md`。
+
+### 修复
+- `GET /screenshot`（flutter 渲染模式）恒返回 500 的真实 bug:`captureFlutterScreen`
+  原先读取 `binding.rootElement.renderObject`(恒为 `RenderView`,永远不是
+  `RenderRepaintBoundary`),导致 `FlutterWrightRoot` 包装器形同虚设。现改为给
+  `FlutterWrightRoot` 的 `RepaintBoundary` 挂 `GlobalKey`(`fwRepaintBoundaryKey`)并经其定位
+  捕获,回退到旧的根检查。Android 模拟器实测返回 200 PNG。
+
 ## 0.2.0 - 2026-05-22
 
 ### 新增

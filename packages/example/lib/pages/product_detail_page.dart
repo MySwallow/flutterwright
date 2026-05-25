@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../mock/demo_mock_provider.dart';
+import '../demo_data.dart';
 
 class ProductDetailPage extends StatelessWidget {
-  const ProductDetailPage({required this.args, required this.mock, super.key});
+  const ProductDetailPage({required this.args, super.key});
 
   final Map<String, Object?>? args;
-  final DemoMockProvider mock;
 
   @override
   Widget build(BuildContext context) {
-    final data = mock.enabled
-        ? mock.get('product') as Map<String, Object?>?
-        : <String, Object?>{'name': '真实接口结果(未接)', 'price': 0.0};
+    const product = demoProduct;
     return Scaffold(
-      appBar: AppBar(title: Text('${data?['name']}')),
+      appBar: AppBar(title: Text('${product['name']}')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -28,13 +25,13 @@ class ProductDetailPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              '${data?['name']}',
+              '${product['name']}',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
-            Text('¥ ${data?['price']}'),
+            Text('¥ ${product['price']}'),
             const SizedBox(height: 16),
-            Text('${data?['desc'] ?? ''}'),
+            Text('${product['desc'] ?? ''}'),
             const Spacer(),
             FilledButton(
               onPressed: () => Navigator.pushNamed(
