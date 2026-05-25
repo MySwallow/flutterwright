@@ -45,17 +45,8 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// 启动时注册"可被发现"的路由:
-FlutterWright.routes.register('/home');
-FlutterWright.routes.register('/order/detail');
-```
-
-或者启动时一次传入:
-
-```dart
-await FlutterWright.start(
-  testRoutes: const ['/home', '/login', '/order/detail'],
-);
+// 可选:传入路由名列表,让 GET /routes 可发现
+await FlutterWright.start(routes: appRoutes.keys);
 ```
 
 ## 不同路由架构(GoRouter / GetX)
@@ -63,16 +54,18 @@ await FlutterWright.start(
 第 3 步的 `navigatorKey` 只适用 Navigator 1.0 命名路由。其它栈给 `start()` 传 `CallbackNavigationAdapter`,SDK 只回调你的闭包:
 
 ```dart
-// GoRouter
+// GoRouter(附 routesProvider,让 GET /routes 可发现)
 await FlutterWright.start(navigationAdapter: CallbackNavigationAdapter(
   onNavigate: (route, args, _) => router.go(route, extra: args),
   onReset: () => router.go('/'),
+  routesProvider: () => goRouterPaths(router.configuration.routes),
 ));
 
 // GetX
 await FlutterWright.start(navigationAdapter: CallbackNavigationAdapter(
   onNavigate: (route, args, _) => Get.toNamed(route, arguments: args),
   onReset: () => Get.until((r) => r.isFirst),
+  routesProvider: () => getPages.map((p) => p.name),
 ));
 ```
 
@@ -84,7 +77,6 @@ await FlutterWright.start(navigationAdapter: CallbackNavigationAdapter(
 | GET    | /routes     | —                                                             | `{"ok":true,"routes":[...]}`      |
 | POST   | /navigate   | `{"route":"/x","args":{...},"popUntilRoot":true}`             | `{"ok":true,"route":"/x"}`        |
 | POST   | /reset      | `{}`                                                          | `{"ok":true}`                     |
-| POST   | /reload     | —                                                             | `{"ok":true}`                     |
 | GET    | /screenshot | —                                                             | `image/png` 字节(mode=flutter 时) |
 
 所有错误响应统一格式:`{"ok":false,"error":"..."}`。

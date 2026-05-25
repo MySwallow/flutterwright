@@ -21,10 +21,6 @@ flutter run -d <device-id> -t dev/main_dev.dart   # ← 必须指向 dev 入口,
 启动后你应该看到:
 
 ```
-[flutter_wright_sdk] registered route: /
-[flutter_wright_sdk] registered route: /login
-[flutter_wright_sdk] registered route: /product/detail
-[flutter_wright_sdk] registered route: /order/detail
 [flutter_wright_sdk] listening on http://127.0.0.1:9123
 ```
 

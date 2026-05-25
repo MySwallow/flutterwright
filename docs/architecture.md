@@ -19,7 +19,7 @@ flutter-wright 是 monorepo,既是 Claude Code skill,也拥有 `flutter_wright_s
                   v
 +--------------------------------------+
 |  Layer 2b: flutter-wright (本仓库)    |
-|  - 8 Playwright-style methods        |
+|  - 9 Playwright-style methods        |
 |  - skills/flutter-wright/SKILL.md     |
 +--------------------------------------+
                   |  bash scripts/*.sh
@@ -34,7 +34,7 @@ flutter-wright 是 monorepo,既是 Claude Code skill,也拥有 `flutter_wright_s
 |  Host Flutter app + flutter_wright_sdk SDK |
 |  - HTTP server on 127.0.0.1:9123     |
 |  - /health /routes /navigate /reset  |
-|  - /screenshot /reload               |
+|  - /screenshot                        |
 +--------------------------------------+
 ```
 
@@ -42,24 +42,21 @@ flutter-wright 是 monorepo,既是 Claude Code skill,也拥有 `flutter_wright_s
 
 ### SDK (`packages/flutter_wright_sdk`)
 
-- **`FlutterWright`** 门面 — start/stop,暴露 `navigatorKey`、`routes`;`start(navigationAdapter:)` 注入路由适配器。
+- **`FlutterWright`** 门面 — start/stop,暴露 `navigatorKey`;`start(navigationAdapter:, navigatorKey:, routes:)` 注入路由适配器与可发现路由列表。
 - **`FlutterWrightHttpServer`** — `dart:io HttpServer` 绑 `127.0.0.1:9123`(可配置),按 `path + method` 分发请求给 handler。
 - **Handlers** — 每个 endpoint 一个文件,继承 `Handler` 抽象基类,通过 `ctx.request.writeJson/writeOk/writeError` 写响应。
-- **`NavigationAdapter`** — 把 `/navigate`、`/reset` 与路由栈解耦。`NavigatorKeyAdapter`(默认,命名路由)/ `CallbackNavigationAdapter`(GoRouter、GetX 等任意栈)。
-- **`RouteRegistry`** — 宿主声明的可发现路由表;`GET /routes` 列出注册的路由。
+- **`NavigationAdapter`** — 把 `/navigate`、`/reset` 与路由栈解耦。`NavigatorKeyAdapter`(默认,命名路由)/ `CallbackNavigationAdapter`(GoRouter、GetX 等任意栈)。`GET /routes` 返回 adapter 的 `discoverableRoutes`;未配置时为 `[]`。
 - **`FlutterWrightRoot`** — 可选 Widget 包装,让 `/screenshot` 可靠工作(提供 `RepaintBoundary`)。
-- **`ReloadHandler`** — 调 `vm_service.reloadSources` 触发本进程的 Flutter hot reload(在 `flutter run` + DDS 下可能受限,见 troubleshooting)。
-
 ### Skill (`skills/flutter-wright`)
 
-- **`SKILL.md`** — 唯一对外接口,Playwright-style 7 methods 定义 + dispatch convention。
-- **`scripts/`** — 7 个 bash 脚本(`health.sh / goto.sh / screenshot.sh / reload.sh / set_viewport.sh / reset_viewport.sh / reset.sh`),封装 adb / curl / printf 细节。
+- **`SKILL.md`** — 唯一对外接口,Playwright-style 9 methods 定义 + dispatch convention。
+- **`scripts/`** — 9 个 bash 脚本(`run.sh / stop.sh / health.sh / goto.sh / screenshot.sh / reload.sh / set_viewport.sh / reset_viewport.sh / reset.sh`),封装 flutter daemon / adb / curl 细节。reload 经 `run` 持有的 `flutter run --machine` daemon(`app.restart`),不经 SDK。
 
 ## 双仓库职责
 
 | 仓库 | 内容 | 职责层 |
 |---|---|---|
-| `flutter-wright/`(本仓库) | SKILL + 8 scripts + SDK + example + docs | Layer 2b 设备/Flutter app 驱动 |
+| `flutter-wright/`(本仓库) | SKILL + 9 scripts + SDK + example + docs | Layer 2b 设备/Flutter app 驱动 |
 | `flutter-visual-loop/`(瘦身后) | SKILL + 编排逻辑 | Layer 2a UI 还原循环编排 |
 
 ## 安全约束
@@ -67,7 +64,6 @@ flutter-wright 是 monorepo,既是 Claude Code skill,也拥有 `flutter_wright_s
 - 当 `kDebugMode == false` 时,SDK 拒绝启动(默认 config 守门)。
 - Server 仅绑 `127.0.0.1`,不暴露到 LAN。
 - `adb wm size` / `wm density` 覆写由 skill 记录到 `$CLAUDE_JOB_DIR/fw_original.env`,任务结束或任何失败路径必须调 `Skill flutter-wright "resetViewport"` 还原。
-- `/reload` 端点要求本进程 VM service 可用 — release 构建下 VM service 自动关闭,端点返 503,无安全暴露。
 - 每个 endpoint 在 debug console 输出一行汇总;超 `maxBodyBytes`(默认 1 MiB)的请求返 413。
 
 ## 故意**不**做的事(v1)

@@ -8,7 +8,7 @@ set -euo pipefail
 
 # shellcheck source=_lib.sh
 source "$(dirname "$0")/_lib.sh"
-fw_ensure_health
+fw_need_adb
 
 JOB_DIR="${CLAUDE_JOB_DIR:-/tmp/fw-job}"
 mkdir -p "$JOB_DIR"

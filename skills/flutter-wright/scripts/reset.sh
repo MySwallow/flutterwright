@@ -6,7 +6,7 @@ set -euo pipefail
 
 # shellcheck source=_lib.sh
 source "$(dirname "$0")/_lib.sh"
-fw_ensure_health
+fw_need_sdk
 
 PORT="${VL_PORT:-9123}"
 

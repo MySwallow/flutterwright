@@ -1,10 +1,10 @@
 # 故障排查
 
-按 "现象在哪一层暴露" 分组。所有方法名为 flutter-wright v1 命名(`health/goto/screenshot/reload/setViewport/resetViewport/reset`)。
+按 "现象在哪一层暴露" 分组。所有方法名为 flutter-wright v1 命名(`run/stop/health/goto/screenshot/reload/setViewport/resetViewport/reset`)。
 
 ## `health` 失败
 
-> **退出码 10-13 也可能从 `goto` / `screenshot` / `reload` / `reset` / `setViewport` 的首次调用触发** —— 这些方法在本 job 首次调用时会自动跑同一套环境检查（[SKILL.md §环境检查（自动）](../skills/flutter-wright/SKILL.md#环境检查自动)），失败统一以 health 段退出码退出。下面排查步骤对显式 `health` 和隐式触发都适用。
+> **退出码 10-13 来自需要 SDK 的方法(`goto`/`reset`/`health`)** —— 它们检查 `adb` + 设备 + `adb forward` + `GET /health`。`screenshot`/`setViewport`/`run` 只查 `adb` + 设备(10/11)。`reload` 不查这些,只校验 owned daemon(见下方 `reload` 段)。
 
 ### exit 10:adb 未安装
 
@@ -58,7 +58,7 @@ App 在启动。两选一:
 curl http://localhost:9123/routes   # 已注册的路由
 ```
 
-注册:`FlutterWright.routes.register('/your/route');`
+`GET /routes` 返回 adapter 的 `discoverableRoutes`;若返回 `[]` 说明未配置 `routes:` 或 `routesProvider:`,属正常,不影响 `goto`。
 
 ### 页面切换但 UI 没刷新
 
@@ -87,17 +87,29 @@ adb shell wm density reset
 
 ## `reload` 失败
 
-### exit 31 (HTTP 503): VM service not available
+新模型:`reload` 向本 skill `run` 持有的 `flutter run --machine` daemon 发 `app.restart`,**不经 SDK**。
 
-`/reload` 靠 SDK 进程内自连 VM service,但 `flutter run` 的 DDS 会独占 VM service,导致自连被拒;release/profile 构建则根本没开 VM service。
+### exit 33: 没有 owned daemon
 
-**最可靠的热重载是在 `flutter run` 控制台直接按 `r`** —— SDK 的 `/reload` 只是"无人值守"场景下的尽力而为。确认 `flutter run` 是 debug 模式(默认就是)。
+没 `run` 过(无 `$CLAUDE_JOB_DIR/fw_daemon.env`),或你自己终端起了 flutter run(本 skill 持有不了)。两选一:
+- 先 `Skill flutter-wright "run dev/main_dev.dart"` 让 AI 起 app;
+- 你自己终端起的就在那个控制台按 `r`。
 
-### exit 32 (其他 HTTP code)
+### exit 34: daemon 已死
 
-可能是 reload 本身失败(语法错、`main()` 改了需 hot restart)。看 `flutter run` 控制台的 dart compile error。
+`run` 起的进程退出了(可能 app crash 或被 kill)。看 `$CLAUDE_JOB_DIR/fw_daemon.log`,重新 `run`。
 
-需要 hot restart 时:目前 v1 没暴露,临时 workaround 是 `adb shell am force-stop <pkg>` + `flutter run` 重启。
+### exit 35: 重载失败或超时
+
+dart 编译错误(语法错、`main()` 改了需 hot restart),或 60s 内没拿到响应。看 `$CLAUDE_JOB_DIR/fw_daemon.log` 末尾的 reload 结果。需要 hot restart 时 v1 未暴露,临时 workaround:`stop` 后重新 `run`。
+
+### exit 36: 找不到 flutter(`run`)
+
+`run` 定位不到 flutter 二进制。设 `FLUTTER_BIN=/path/to/flutter`,或把 flutter 加进 PATH。
+
+### exit 38: app 未在 180s 内启动(`run`)
+
+看 `$CLAUDE_JOB_DIR/fw_daemon.log`:常见是 build 失败、设备未授权、或 target 入口路径错。
 
 ## `setViewport` 失败 / 任务结束后设备状态奇怪
 
@@ -153,21 +165,18 @@ flutter pub get
 flutter test
 ```
 
-期望:`All tests passed!`(含 `reload_handler_test`)。
+期望:`All tests passed!`。
 
-### 第 3 步 — 启动 example app
+### 第 3 步 — 用 skill 启动 example app
 
-```bash
-cd packages/example
-# 注意 -t:示例的 lib/main.dart 是零 SDK 的生产入口,debug 入口在 dev/main_dev.dart
-flutter run -d $(adb devices | awk 'NR>1 && $2=="device"{print $1; exit}') -t dev/main_dev.dart
-```
-
-等到看见:
+在 Claude Code 会话里(cwd 切到 `packages/example`):
 
 ```
-[flutter_wright_sdk] listening on http://127.0.0.1:9123
+Skill flutter-wright "run dev/main_dev.dart"
+# → ok: appId=<id> device=<id> target=dev/main_dev.dart
 ```
+
+(`dev/main_dev.dart` 是集成了 SDK 的 debug 入口,启用 goto;`lib/main.dart` 是零 SDK 生产入口。)
 
 ### 第 4 步 — 端口转发 + 方法烟雾测试
 
@@ -198,6 +207,9 @@ Skill flutter-wright "reset"
 
 Skill flutter-wright "resetViewport"
 # → restored: size=<orig> density=<orig>
+
+Skill flutter-wright "stop"
+# → stopped: appId=<id>
 ```
 
 ### 第 5 步 — 确认设备被还原
@@ -207,4 +219,4 @@ adb shell wm size       # 只有 Physical size,无 Override
 adb shell wm density    # 只有 Physical density,无 Override
 ```
 
-### 完成 = 8 方法全部 exit 0 + 设备状态恢复
+### 完成 = 烟雾序列各方法全部 exit 0 + 设备状态恢复

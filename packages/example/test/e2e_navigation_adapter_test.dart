@@ -37,6 +37,21 @@ Future<({int code, String body})> _curlPost(
   }
 }
 
+Future<({int code, String body})> _curlGet(String path) async {
+  final tmp = await Directory.systemTemp.createTemp('fw_navget_');
+  final out = File('${tmp.path}/body');
+  try {
+    final res = await Process.run('curl', <String>[
+      '-s', '-o', out.path, '-w', '%{http_code}', '$_base$path',
+    ]);
+    final code = int.tryParse(res.stdout.toString().trim()) ?? 0;
+    final body = await out.exists() ? await out.readAsString() : '';
+    return (code: code, body: body);
+  } finally {
+    await tmp.delete(recursive: true);
+  }
+}
+
 /// 声明式路由 app:导航 = 改 [route] 的值,树重建。无 Navigator.pushNamed。
 class _DeclarativeApp extends StatelessWidget {
   const _DeclarativeApp(this.route);
@@ -81,13 +96,33 @@ void main() {
               route.value = '/';
               lastReset = '/';
             },
+            routesProvider: () => const <String>['/', '/cart', '/profile'],
           ),
-          testRoutes: const <String>['/', '/cart', '/profile'],
         ));
     await tester.pumpWidget(_DeclarativeApp(route));
     await tester.pumpAndSettle();
     expect(FlutterWright.isRunning, isTrue);
     expect(find.text('HOME PAGE'), findsOneWidget);
+
+    // routesProvider 的结果应原样出现在 GET /routes
+    final routesResp =
+        (await tester.runAsync(() => _curlGet('/routes')))!;
+    expect(routesResp.code, 200);
+    final discovered =
+        ((jsonDecode(routesResp.body) as Map<String, Object?>)['routes']
+                as List<Object?>)
+            .cast<String>();
+    expect(discovered, containsAll(<String>['/', '/cart', '/profile']),
+        reason: 'GET /routes 应来自 CallbackNavigationAdapter.routesProvider');
+
+    // 发现与导航解耦:跳一个不在 routesProvider 里的路由仍应 200
+    final unlisted = (await tester
+        .runAsync(() => _curlPost('/navigate', <String, Object?>{'route': '/zzz'})))!;
+    await tester.pumpAndSettle();
+    expect(unlisted.code, 200,
+        reason: '导航直接交给 adapter,不查发现列表');
+    expect(find.text('HOME PAGE'), findsOneWidget,
+        reason: '_DeclarativeApp 对未知路由回落到 HOME');
 
     // 真实 curl POST /navigate → adapter 把 notifier 设成 /cart → 树重建
     final toCart =

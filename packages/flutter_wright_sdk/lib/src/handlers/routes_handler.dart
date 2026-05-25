@@ -1,10 +1,10 @@
-import '../route_registry.dart';
+import '../navigation_adapter.dart';
 import 'handler.dart';
 
 class RoutesHandler extends Handler {
-  RoutesHandler(this.registry);
+  RoutesHandler(this.adapter);
 
-  final RouteRegistry registry;
+  final NavigationAdapter adapter;
 
   @override
   String get path => '/routes';
@@ -14,9 +14,10 @@ class RoutesHandler extends Handler {
 
   @override
   Future<void> handle(HandlerContext ctx) async {
+    final routeNames = adapter.discoverableRoutes?.toList() ?? const <String>[];
     await ctx.request.writeJson(200, <String, Object?>{
       'ok': true,
-      'routes': registry.names.toList(),
+      'routes': routeNames,
     });
   }
 }

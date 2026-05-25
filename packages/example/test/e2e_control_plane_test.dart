@@ -29,6 +29,7 @@ import 'package:flutter_wright_example/app.dart';
 import 'package:flutter_wright_example/pages/home_page.dart';
 import 'package:flutter_wright_example/pages/login_page.dart';
 import 'package:flutter_wright_example/pages/order_detail_page.dart';
+import 'package:flutter_wright_example/router/app_router.dart';
 
 const String _base = 'http://127.0.0.1:9123';
 
@@ -93,7 +94,7 @@ bool _looksLikePng(List<int> b) =>
 void main() {
   Future<void> bootApp(WidgetTester tester) async {
     await tester.runAsync(() => FlutterWright.start(
-          testRoutes: const <String>['/', '/login', '/product/detail', '/order/detail'],
+          routes: AppRouter.names,
         ));
     await tester.pumpWidget(
       FlutterWrightRoot(
@@ -249,15 +250,16 @@ void main() {
       expect(find.byType(HomePage), findsOneWidget);
     });
 
-    testWidgets('reload.sh：VM service 未启用时按设计返回退出码 31',
+    testWidgets('reload.sh：未 run(无 owned daemon)时返回退出码 33',
         (WidgetTester tester) async {
       await bootApp(tester);
-      // flutter test 进程默认不开 VM service → /reload 返回 503 → reload.sh exit 31。
-      // 在真实 `flutter run` 下 VM service 总是存在 → exit 0。两者都接受。
+      // 新模型:reload 走 AI 持有的 flutter daemon(由 `run` 启动),不再碰 SDK。
+      // 测试 job 没 run 过 → 无 $CLAUDE_JOB_DIR/fw_daemon.env → reload.sh 干净报错 exit 33。
+      // daemon 驱动的成功路径依赖真机 + 真实 flutter 进程,在设备上手工验证。
       final reload =
           (await tester.runAsync(() => runScript('reload.sh', <String>[])))!;
-      expect(reload.exitCode, anyOf(0, 31),
-          reason: 'reload.sh 应区分 VM service 可用/不可用，stderr: ${reload.stderr}');
+      expect(reload.exitCode, 33,
+          reason: 'reload.sh 无 owned daemon 应 exit 33,stderr: ${reload.stderr}');
     });
   });
 }

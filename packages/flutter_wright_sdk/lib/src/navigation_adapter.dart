@@ -26,6 +26,13 @@ abstract class NavigationAdapter {
 
   /// Return to the app's root/home (used by `/reset`).
   FutureOr<void> reset();
+
+  /// Routes this adapter can enumerate for `GET /routes`. Null = not
+  /// enumerable (e.g. `onGenerateRoute` / FlutterBoost `routeFactory`); the
+  /// handler then returns an empty list. Concrete default benefits subclasses
+  /// that `extends` this type; adapters that `implements` NavigationAdapter
+  /// (incl. the built-ins below) must declare it themselves.
+  Iterable<String>? get discoverableRoutes => null;
 }
 
 /// Default adapter for **Navigator 1.0 named routes**.
@@ -35,9 +42,19 @@ abstract class NavigationAdapter {
 /// automatically when [FlutterWright.start] is called without an explicit
 /// `navigationAdapter`.
 class NavigatorKeyAdapter implements NavigationAdapter {
-  NavigatorKeyAdapter(this.navigatorKey);
+  NavigatorKeyAdapter(
+    this.navigatorKey, {
+    Iterable<String> routes = const <String>[],
+  }) : _routes = List<String>.unmodifiable(routes);
 
   final GlobalKey<NavigatorState> navigatorKey;
+  // Eagerly materialized so a one-shot `Iterable` (e.g. a `sync*` generator)
+  // isn't consumed by the `isEmpty` check before `discoverableRoutes` reads it.
+  final List<String> _routes;
+
+  @override
+  Iterable<String>? get discoverableRoutes =>
+      _routes.isEmpty ? null : _routes;
 
   @override
   bool get isReady => navigatorKey.currentState != null;
@@ -92,7 +109,9 @@ class CallbackNavigationAdapter implements NavigationAdapter {
     required this.onNavigate,
     required this.onReset,
     bool Function()? readiness,
-  }) : _readiness = readiness;
+    Iterable<String> Function()? routesProvider,
+  })  : _readiness = readiness,
+        _routesProvider = routesProvider;
 
   /// Called for `/navigate`. Receives the route, opaque args, and the
   /// `popUntilRoot` flag (honor it if your stack supports it).
@@ -103,6 +122,14 @@ class CallbackNavigationAdapter implements NavigationAdapter {
   final FutureOr<void> Function() onReset;
 
   final bool Function()? _readiness;
+
+  // Called for `GET /routes`. Returns the routes this stack can enumerate
+  // (e.g. GetX `getPages.map((p) => p.name)`), or null for non-enumerable
+  // stacks. Invoked per request so dynamic route tables stay fresh.
+  final Iterable<String> Function()? _routesProvider;
+
+  @override
+  Iterable<String>? get discoverableRoutes => _routesProvider?.call();
 
   @override
   bool get isReady => _readiness?.call() ?? true;

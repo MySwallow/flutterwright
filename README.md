@@ -7,27 +7,29 @@
 两块拼在一起:
 
 - **`flutter_wright_sdk`**(Dart SDK)—— 加进你的 app,debug 下在 `127.0.0.1:9123` 开一个本地 HTTP 控制服务;release 自动 no-op。
-- **`flutter-wright`**(Claude Code skill)—— 通过 `adb forward` + `curl` 把指令发给那个服务,暴露 7 个 Playwright 风格的方法:
+- **`flutter-wright`**(Claude Code skill)—— 通过 `adb forward` + `curl`(以及持有 `flutter run`)驱动那个 app,暴露 9 个 Playwright 风格的方法:
 
 | 方法 | 作用 |
 |---|---|
 | `goto <route> [args]` | **程序化跳转**到任意路由(核心能力) |
 | `screenshot <path>` | 设备整帧截图(含状态栏)→ PNG |
-| `reload` | 触发 Flutter 热重载 |
+| `run` | AI 后台启动 flutter run 并持有(reload 前提) |
+| `stop` | 停止 owned flutter run |
+| `reload` | 热重载 AI 持有的 flutter run(不经 SDK) |
 | `setViewport <w> <h> <dpi>` / `resetViewport` | 锁定 / 恢复设备分辨率(像素对齐用) |
 | `reset` | navigator pop 回根 |
-| `health` | 环境自检(其它方法首次调用时自动跑) |
+| `health` | SDK 探针(`goto`/`reset` 的前提) |
 
 导航**架构无关**:经可插拔 `NavigationAdapter` 适配,Navigator 1.0 / GoRouter / GetX 都行。路由**无需预先注册**——`goto` 直接把路由名交给你的路由器。
 
 ## 你需要它吗?
 
-关键看**哪些动作要交给 AI 程序化执行**——AI 没法在 `flutter run` 控制台手动按 `r`、也没法手点屏幕,这些就得走 SDK:
+关键看**哪些动作要交给 AI 程序化执行**——AI 没法在 `flutter run` 控制台手动按 `r`、也没法手点屏幕。但这些未必都要 SDK:`reload` 走 `run` 起的 flutter daemon、截图走 adb,只有程序化导航(`goto`/`reset`)才需要 SDK:
 
 | 你的流程 | 要不要这个 SDK |
 |---|---|
-| 人工导航,而且**你自己**截图 / 按 `r` reload | **不需要**。`adb exec-out screencap -p > x.png` + `flutter run` 控制台按 `r` |
-| 人工导航,但 **AI 改代码 → AI reload → AI 截图看效果** | **需要**(最小集成,只 `start()`)——AI 的 reload/截图得走 SDK |
+| 只要 **AI 截图 + AI reload + AI 改码**(不要程序化跳转) | **不需要 SDK**。AI `run` 起你的 app → `reload` + `screenshot`。reload 走 flutter daemon、截图走 adb,均不经 SDK。 |
+| 还要 **AI 程序化跳转任意路由(`goto`)** | **需要集成 SDK**(接 navigatorKey/adapter + `start()`)。SDK 只为解锁 `goto`/`reset`。 |
 | 想让 **AI 自己跳到任意页面**(全自动循环) | **需要** + 接导航(navigatorKey 或 adapter) |
 | 想要"纯 Flutter 渲染树截图(不含状态栏)" | 需要 SDK + `FlutterWrightRoot`;adb 整帧截图则不需要 |
 
@@ -35,9 +37,9 @@
 
 ### 典型工作流:人工导航 + AI 改码迭代
 
-最常见的一种:**`flutter run` 起好 → 人工把 app 点到目标页 → AI 改 Dart → AI `reload` → AI `screenshot` 看效果 → 再改**。这条循环里 AI 不碰导航(人来点),只需 `reload` + `screenshot`,所以集成最小化——宿主只 `await FlutterWright.start();` 一行即可。
+最常见的一种:**AI `run` 起 app → 人工把 app 点到目标页 → AI 改 Dart → AI `reload` → AI `screenshot` 看效果 → 再改**。这条循环里 AI 不碰导航(人来点),只需 `run` + `reload` + `screenshot`,**完全不需要集成 SDK**。
 
-> reload 说明:AI 的 `reload` 走 SDK `/reload`,在 `flutter run` + DDS 下偶尔会被拒(返回 503)。因为这条循环里本就有人在,退化方案很自然——让人在 `flutter run` 控制台按一下 `r`。
+> reload 说明:AI 的 `reload` 驱动的是 `run` 起的 `flutter run --machine` daemon(`app.restart`),稳定可靠。前提是用 `run` 起 app;你自己终端起的 flutter run 本 skill 持有不了,reload 返回退出码 33,自己按 `r` 即可。
 
 ## 工作原理
 
@@ -57,8 +59,10 @@
 
 1. app 集成 `flutter_wright_sdk`,debug 启动后在 `127.0.0.1:9123` 开 HTTP 服务。
 2. 电脑上 `adb forward tcp:9123 tcp:9123` 把设备端口转发到本机。
-3. Claude Code 调 `Skill flutter-wright "..."`,bash 脚本经 `curl` 把命令发到 SDK,SDK 在 app 内执行。
+3. 调用**需要 SDK 的方法**(`goto`/`reset`)时,bash 脚本经 `curl` 把命令发到 SDK,SDK 在 app 内执行。
 4. release 构建里 SDK 是 no-op,不绑 socket、不暴露任何东西。
+
+> 上图是 **SDK 路径**(`goto`/`reset`、SDK 渲染树截图)。`reload`/`run` 走 flutter-wright 持有的 `flutter run --machine` daemon、`screenshot` 走 `adb screencap`,都**不经**这个 HTTP 服务、不需要 SDK。
 
 ## 集成是按需的
 
@@ -66,10 +70,10 @@
 
 | 你想用 | 需要的集成 |
 |---|---|
-| `reload` + adb 截图(人工导航) | **仅** `await FlutterWright.start();` |
+| `reload` + adb 截图(人工导航) | **不需要 SDK**;AI `run` 起 app 即可 |
 | `goto` / `reset`(命名路由) | 再把 `FlutterWright.navigatorKey` 传给 `MaterialApp(navigatorKey:)` |
 | `goto`(GoRouter / GetX) | 给 `start()` 传一个 `CallbackNavigationAdapter` |
-| `GET /routes` 让 AI 发现页面 | 传 `testRoutes`(可选,不影响 `goto`) |
+| `GET /routes` 让 AI 发现页面 | 传 `routes:`(路由名列表,可选)或 adapter 的 `routesProvider`(不影响 `goto`) |
 | 纯渲染树截图(不含状态栏) | 用 `FlutterWrightRoot` 包根 |
 
 推荐把 SDK 放 **`dev_dependencies`** + 一个独立 `dev/main_dev.dart` 入口,让生产 `lib/` 对 SDK 零引用、release 零残留。`packages/example` 就是这么组织的。完整模式见 [集成指南](docs/integration-guide.md)。
@@ -104,7 +108,9 @@ Skill flutter-wright "screenshot $CLAUDE_JOB_DIR/cur.png"
 
 ## 集成进你自己的 app
 
-最小集成(只要 `reload` + 截图):
+只需要 `reload` + 截图?**无需集成 SDK** —— 用 skill 的 `run` 起 app 即可,reload 走 flutter daemon、截图走 adb,完全不经 SDK。只有需要 `goto`/`reset`(AI 程序化跳转)时才集成 SDK。
+
+最小集成(只要 `goto`/`reset`):
 
 ```dart
 import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
@@ -140,7 +146,7 @@ flutterwright/
 
 | 文档 | 内容 |
 |---|---|
-| [`skills/flutter-wright/SKILL.md`](skills/flutter-wright/SKILL.md) | 7 个方法:签名、退出码、示例 |
+| [`skills/flutter-wright/SKILL.md`](skills/flutter-wright/SKILL.md) | 9 个方法:签名、退出码、示例 |
 | [`docs/api-reference.md`](docs/api-reference.md) | SDK HTTP 协议 —— 面向直接 curl 调用方与贡献者 |
 | [`docs/architecture.md`](docs/architecture.md) | 分层、组件、安全约束 |
 | [`docs/integration-guide.md`](docs/integration-guide.md) | Dart 集成模式(人类版) |

@@ -17,19 +17,19 @@
 
 **Response 200**
 ```json
-{ "ok": true, "version": "0.4.0", "service": "flutter_wright_sdk" }
+{ "ok": true, "version": "0.6.0", "service": "flutter_wright_sdk" }
 ```
 
 ## GET /routes
 
-列出宿主注册为"可被 visual loop 发现"的路由。
+列出当前 `NavigationAdapter.discoverableRoutes`。宿主通过 `start(routes: ...)` 或 `CallbackNavigationAdapter(routesProvider: ...)` 提供路由列表;未配置时返回空数组(不是错误)。
 
 **Response 200**
 ```json
 { "ok": true, "routes": ["/", "/login", "/order/detail"] }
 ```
 
-> 只有调用过 `FlutterWright.routes.register('/x')` 或在 `start()` 的 `testRoutes:` 参数里传过的路由才会出现在这里。
+> `GET /routes` 返回什么取决于 adapter 的 `discoverableRoutes`。**`POST /navigate`(goto)从不查此列表**,能否跳成功只取决于 app 路由器认不认路由名。
 
 ## POST /navigate
 
@@ -76,23 +76,6 @@
 **错误**
 - `500` — adapter 的 reset 抛了异常
 
-## POST /reload
-
-触发 Flutter hot reload(经 VM service `reloadSources`)。Source 改动由调用方完成(Claude/上层 skill 编辑 Dart 文件之后调本端点)。
-
-**Request body:** 无(或空 `{}`)。
-
-**Response 200**
-```json
-{ "ok": true }
-```
-
-**错误**
-- `503` — VM service 不可用:release/profile 构建未开,或 `flutter run` 的 DDS 独占了它(此时优先在 `flutter run` 控制台按 `r`)
-- `500` — `reloadSources` 失败(常见:语法错误、`main()` 改了需 hot restart)
-
-实现:`ReloadHandler` 用 `dart:developer Service.getInfo()` 拿本进程 VM service URI,再用 `package:vm_service` 连回自己,对 main isolate 调 `reloadSources`。
-
 ## GET /screenshot
 
 把 Flutter 渲染树截成 PNG。**不包含** OS chrome(状态栏、导航栏)。要截完整设备帧,用 `adb exec-out screencap`。
@@ -115,6 +98,15 @@ FlutterWright.bind();         // autoStart 是 false 时延后 bind
 FlutterWright.stop();         // 关 server
 FlutterWright.isRunning;      // bool
 ```
+
+`start()` 主要参数:
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `navigationAdapter` | `NavigationAdapter?` | 可选自定义 adapter;不传时默认 `NavigatorKeyAdapter` |
+| `navigatorKey` | `GlobalKey<NavigatorState>?` | 宿主已有自己的 navigatorKey 时传入,仅 Navigator 1.0 路径用 |
+| `routes` | `Iterable<String>?` | 路由名列表,喂给 `GET /routes`;不传则由 adapter 的 `discoverableRoutes` 决定(可能为 `[]`) |
+| `config` | `FlutterWrightConfig?` | host/port/enableInDebugOnly 等配置 |
 
 ## curl 实用集合
 

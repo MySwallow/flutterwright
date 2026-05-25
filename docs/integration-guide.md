@@ -8,15 +8,17 @@
 
 集成是**按方法分摊**的,不必一次接全。先看你要用哪些能力:
 
+> `reload`/`screenshot` 不需要 SDK;下表只列**需要集成**的能力(`goto`/`reset` 及可发现路由)。
+
 | 你想用 | 需要做的 | 对应章节 |
 |---|---|---|
-| `reload` + adb 截图(导航靠人工) | **仅** `await FlutterWright.start();` | §1 §2 |
-| `goto` / `reset`(命名路由) | 再把 `FlutterWright.navigatorKey` 注入 `MaterialApp(navigatorKey:)` | §3 |
-| `goto`(GoRouter / GetX 等) | 给 `start()` 传 `CallbackNavigationAdapter` | §5 |
-| `GET /routes` 让 AI 发现页面 | 传 `testRoutes`(**纯可选**,不影响 `goto`) | §4 |
+| `reload` + adb 截图(导航靠人工) | **无需集成 SDK** —— 让 flutter-wright skill `run` 起你的 app | — |
+| `goto` / `reset`(命名路由) | `await FlutterWright.start();` 并把 `FlutterWright.navigatorKey` 注入 `MaterialApp(navigatorKey:)` | §1 §2 §3 |
+| `goto`(GoRouter / GetX 等) | `await FlutterWright.start();` 并给 `start()` 传 `CallbackNavigationAdapter` | §1 §2 §5 |
+| `GET /routes` 让 AI 发现页面 | 传 `routes:`(路由名列表,**纯可选**,不影响 `goto`) | §4 |
 | 纯渲染树截图(不含状态栏) | 用 `FlutterWrightRoot` 包根 | §2 |
 
-> 最小集成就是 `FlutterWright.start()` 一行。下面各节按这个顺序展开;只接你需要的。
+> 最小集成(`goto`/`reset`)就是 `FlutterWright.start()` 一行。下面各节按这个顺序展开;只接你需要的。
 
 ## 1. 添加依赖(推荐放 `dev_dependencies`)
 
@@ -48,9 +50,7 @@ import 'package:your_app/app.dart'; // 你的根 widget,接受注入
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FlutterWright.start(
-    testRoutes: const ['/home', '/login', '/order/detail'],
-  );
+  await FlutterWright.start(routes: appRoutes.keys);
   // FlutterWrightRoot 包根让 /screenshot 可靠(见下)
   runApp(FlutterWrightRoot(
     child: MyApp(navigatorKey: FlutterWright.navigatorKey),
@@ -89,7 +89,7 @@ import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FlutterWright.start(testRoutes: const ['/home', '/login']);
+  await FlutterWright.start(routes: AppRouter.names);
   runApp(FlutterWrightRoot(child: const MyApp()));
 }
 ```
@@ -102,21 +102,30 @@ Future<void> main() async {
 
 GoRouter / GetX / auto_route 等**不用命名路由**的架构,改传你自己的 adapter —— 见第 6 节。SDK 对路由 API **零假设**。
 
-## 4. 注册路由(纯可选 —— 仅为可发现性)
+## 4. 提供可发现路由(纯可选 —— 仅为 `GET /routes`)
 
-**`goto` 不需要任何注册**:`/navigate` 直接把路由名交给你的路由器,能否跳成功只取决于路由器认不认。注册唯一的作用,是让 `GET /routes` 能列出"有哪些页面"——给 AI 自动发现用;你用 curl、自己知道路由名,那就完全不用注册。
+**`goto` 不需要任何注册**:`/navigate` 直接把路由名交给你的路由器,能否跳成功只取决于路由器认不认。`GET /routes` 返回当前 `NavigationAdapter.discoverableRoutes`;不可枚举的栈返回 `[]`。这一步唯一的作用是让 `GET /routes` 能列出"有哪些页面"给 AI 自动发现用。
 
+**Navigator 1.0 + `MaterialApp(routes: map)`:**
 ```dart
-// 想要可发现性时,启动时一次性传入:
-await FlutterWright.start(
-  testRoutes: const ['/home', '/order/detail', '/login'],
-);
-
-// 或之后任何时候:
-FlutterWright.routes.register('/cart');
+// 引用同一个 map 的 keys
+await FlutterWright.start(routes: appRoutes.keys);
 ```
 
-注册关乎"可发现性",不是"准入控制"——未注册的路由照样能被 `goto` 跳到。
+**Navigator 1.0 + onGenerateRoute:**
+```dart
+// 暴露一次路由名常量
+await FlutterWright.start(routes: AppRouter.names);
+```
+
+**宿主已有自己的 navigatorKey:**
+```dart
+await FlutterWright.start(navigatorKey: myKey, routes: AppRouter.names);
+```
+
+**GoRouter / GetX 等:**  在 `CallbackNavigationAdapter` 里提供 `routesProvider`(见 §5 示例)。
+
+可发现性≠"准入控制"——未在 `routes` 里出现的路由照样能被 `goto` 跳到。
 
 ## 5. 不同路由架构(GoRouter / GetX / 自定义)
 
@@ -126,10 +135,23 @@ FlutterWright.routes.register('/cart');
 ```dart
 final router = GoRouter(routes: [...]);
 
+Iterable<String> goRouterPaths(List<RouteBase> routes, [String prefix = '']) sync* {
+  for (final r in routes) {
+    if (r is GoRoute) {
+      final full = r.path.startsWith('/') ? r.path : '$prefix/${r.path}';
+      yield full;
+      yield* goRouterPaths(r.routes, full);
+    } else {
+      yield* goRouterPaths(r.routes, prefix);
+    }
+  }
+}
+
 await FlutterWright.start(
   navigationAdapter: CallbackNavigationAdapter(
-    onNavigate: (route, args, _) => router.go(route, extra: args),
+    onNavigate: (r, args, _) => router.go(r, extra: args),
     onReset: () => router.go('/'),
+    routesProvider: () => goRouterPaths(router.configuration.routes),
   ),
 );
 runApp(MaterialApp.router(routerConfig: router));
@@ -140,8 +162,9 @@ runApp(MaterialApp.router(routerConfig: router));
 ```dart
 await FlutterWright.start(
   navigationAdapter: CallbackNavigationAdapter(
-    onNavigate: (route, args, _) => Get.toNamed(route, arguments: args),
-    onReset: () => Get.until((r) => r.isFirst),
+    onNavigate: (r, args, _) => Get.toNamed(r, arguments: args),
+    onReset: () => Get.until((route) => route.isFirst),
+    routesProvider: () => getPages.map((p) => p.name),
   ),
 );
 runApp(GetMaterialApp(getPages: [...]));
@@ -189,7 +212,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FlutterWright.start(
     config: const FlutterWrightConfig(port: 9123),
-    testRoutes: const ['/', '/login', '/order/detail'],
+    routes: AppRouter.names,
   );
   runApp(FlutterWrightRoot(child: createApp(navigatorKey: FlutterWright.navigatorKey)));
 }

@@ -8,16 +8,14 @@ import 'handlers/navigate_handler.dart';
 import 'handlers/reset_handler.dart';
 import 'handlers/routes_handler.dart';
 import 'handlers/screenshot_handler.dart';
-import 'handlers/reload_handler.dart';
 import 'http_server.dart';
 import 'logger.dart';
 import 'navigation_adapter.dart';
-import 'route_registry.dart';
 
 class FlutterWright {
   FlutterWright._();
 
-  static const String version = '0.4.0';
+  static const String version = '0.6.0';
 
   /// Convenience [GlobalKey] for the **Navigator 1.0** integration path: pass
   /// it to `MaterialApp(navigatorKey:)`. Stable across the app lifetime.
@@ -26,8 +24,6 @@ class FlutterWright {
   /// [CallbackNavigationAdapter] to [start] instead and may ignore this key.
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>(debugLabel: 'flutter_wright_sdk');
-
-  static final RouteRegistry routes = RouteRegistry();
 
   static FlutterWrightHttpServer? _server;
 
@@ -40,7 +36,8 @@ class FlutterWright {
   static Future<void> start({
     FlutterWrightConfig config = const FlutterWrightConfig(),
     NavigationAdapter? navigationAdapter,
-    Iterable<String> testRoutes = const <String>[],
+    GlobalKey<NavigatorState>? navigatorKey,
+    Iterable<String> routes = const <String>[],
   }) async {
     if (config.enableInDebugOnly && !kDebugMode) {
       vlLog('release build: SDK disabled');
@@ -50,21 +47,26 @@ class FlutterWright {
       vlWarn('start() called twice; ignoring');
       return;
     }
-    for (final r in testRoutes) {
-      routes.register(r);
-    }
 
     // Default to the Navigator 1.0 path (shared navigatorKey). Apps on
-    // GoRouter / GetX / etc. pass their own adapter.
-    final adapter = navigationAdapter ?? NavigatorKeyAdapter(navigatorKey);
+    // GoRouter / GetX / FlutterBoost pass their own adapter instead.
+    final NavigationAdapter adapter = navigationAdapter ??
+        NavigatorKeyAdapter(
+          navigatorKey ?? FlutterWright.navigatorKey,
+          routes: routes,
+        );
+
+    if (navigationAdapter != null && routes.isNotEmpty) {
+      vlWarn('start(routes:) ignored because navigationAdapter was provided; '
+          'put discoverable routes in the adapter (routesProvider)');
+    }
 
     final handlers = <Handler>[
       HealthHandler(version),
-      RoutesHandler(routes),
+      RoutesHandler(adapter),
       NavigateHandler(adapter),
       ResetHandler(adapter),
       ScreenshotHandler(config.screenshotMode),
-      ReloadHandler(),
     ];
 
     _server = FlutterWrightHttpServer(config: config, handlers: handlers);
@@ -84,6 +86,5 @@ class FlutterWright {
   static Future<void> stop() async {
     await _server?.stop();
     _server = null;
-    routes.clear();
   }
 }

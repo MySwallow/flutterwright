@@ -1,5 +1,38 @@
 # 更新日志
 
+## 0.6.0 - 2026-05-25
+
+> **破坏性变更。**
+
+### 移除
+- `FlutterWright.start(testRoutes:)` 参数；`FlutterWright.routes`(`RouteRegistry`)
+  静态字段；`src/route_registry.dart` 整个文件及其 barrel export。路由发现改由
+  `NavigationAdapter.discoverableRoutes` 提供。
+- `POST /reload` 端点与 `ReloadHandler`;`vm_service` 依赖。热重载改由 flutter-wright skill
+  经 `run` 持有的 `flutter run --machine` daemon(`app.restart`)驱动,不再经 SDK。SDK 自此
+  只负责 `goto`/`reset`(导航)与 `/screenshot`(`FlutterWrightRoot`)、`/health`。
+
+### 新增
+- `NavigationAdapter.discoverableRoutes`(可选,默认 `null`):`GET /routes` 的唯一来源。
+- `NavigatorKeyAdapter(.., {routes})` 与 `CallbackNavigationAdapter(.., {routesProvider})`
+  用于喂路由发现。
+- `FlutterWright.start({navigatorKey, routes})`:可传宿主自有 navigatorKey;`routes`
+  路由名列表喂 `GET /routes`(取代 `testRoutes`)。
+- (skill 侧)`run` / `stop` 方法:AI 持有一个后台 `flutter run --machine` daemon;`reload`
+  重写为驱动该 daemon。env-check 从全局 `/health` 闸门拆为逐方法前提。
+
+### 修复
+- 统一版本号:`pubspec.yaml` 与代码 `version` 常量对齐为 0.6.0。
+
+### 迁移
+- `start(testRoutes: [...])` → Navigator 1.0(map)用 `start(routes: map.keys)`;
+  Navigator 1.0(onGenerateRoute)暴露一次路由名常量 `start(routes: AppRouter.names)`;
+  其他栈把路由放进 adapter 的 `routesProvider`。
+- 自定义 `implements NavigationAdapter` 的 adapter 需补一行
+  `Iterable<String>? get discoverableRoutes => null;`(不可枚举时)。
+- 用过 `POST /reload` 或 skill `reload`(走 SDK)的:改用 flutter-wright skill 的 `run` 起 app,
+  `reload` 即驱动该 daemon;或在自己的 flutter run 控制台按 `r`。
+
 ## 0.4.0 - 2026-05-25
 
 > **破坏性变更。** 不保证低版本兼容。
