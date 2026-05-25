@@ -56,11 +56,11 @@ abstract class NavigationAdapter {
 
   /// 可枚举给 GET /routes 的路由。null = 不可枚举
   /// (onGenerateRoute / FlutterBoost routeFactory)，handler 返回空数组。
-  Iterable<String>? get discoverableRoutes => null; // 默认 null，旧自定义 adapter 不破
+  Iterable<String>? get discoverableRoutes => null; // extends 子类继承默认；implements 者需自己声明
 }
 ```
 
-`=> null` 默认实现保证任何已有的自定义 adapter 不需要改动即可编译。
+注意 Dart 语义：`extends NavigationAdapter` 的子类继承这个默认 `=> null`；但 `implements NavigationAdapter`（内置两个 adapter 及外部自定义 adapter 走的都是这条）**必须自己声明** `discoverableRoutes`。本次给两个内置 adapter 都加上；外部自定义 adapter 需补一行（记入 CHANGELOG 迁移）。
 
 ### 2. 两个内置 adapter 各加路由来源
 
@@ -103,12 +103,12 @@ static Future<void> start({
   FlutterWrightConfig config = const FlutterWrightConfig(),
   NavigationAdapter? navigationAdapter,
   GlobalKey<NavigatorState>? navigatorKey,          // 新增：默认走内置 key
-  Map<String, WidgetBuilder> routes = const <String, WidgetBuilder>{}, // Navigator 1.0 便捷糖
+  Iterable<String> routes = const <String>[],        // Navigator 1.0 便捷糖：路由名喂给 GET /routes
 }) async {
   // ... debug/重复 start 守卫不变 ...
 
   final NavigationAdapter adapter = navigationAdapter ??
-      NavigatorKeyAdapter(navigatorKey ?? FlutterWright.navigatorKey, routes: routes.keys);
+      NavigatorKeyAdapter(navigatorKey ?? FlutterWright.navigatorKey, routes: routes);
 
   if (navigationAdapter != null && routes.isNotEmpty) {
     vlWarn('start(routes:) ignored because navigationAdapter was provided; '
@@ -157,11 +157,15 @@ class RoutesHandler extends Handler {
 
 ### 5. 各栈接入片段（写入文档，核心包不引依赖）
 
+`start(routes:)` 收 `Iterable<String>`（路由名），不是 `Map`——因为很多 app（含本仓库 example）用 `onGenerateRoute` 而非 `MaterialApp(routes: map)`，没有 map 可取。两种子情形：
+
 ```dart
-// Navigator 1.0 —— 同一个 map 同时给 MaterialApp 和 SDK，零重复零漂移
-await FlutterWright.start(routes: appRoutes);          // appRoutes 也喂给 MaterialApp(routes:)
+// Navigator 1.0 + MaterialApp(routes: map) —— 引用同一个 map 的 keys，零重复零漂移
+await FlutterWright.start(routes: appRoutes.keys);     // appRoutes 同时喂给 MaterialApp(routes:)
+// Navigator 1.0 + onGenerateRoute —— 没有 map，暴露一次路由名常量给两边引用
+await FlutterWright.start(routes: AppRouter.names);
 // 已有自己的 navigatorKey 时：
-await FlutterWright.start(navigatorKey: myKey, routes: appRoutes);
+await FlutterWright.start(navigatorKey: myKey, routes: AppRouter.names);
 
 // GoRouter —— 递归展开 configuration.routes（:id 动态段原样保留）
 Iterable<String> goRouterPaths(List<RouteBase> routes, [String prefix = '']) sync* {
