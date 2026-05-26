@@ -4,69 +4,49 @@
 
 ## 是什么
 
-FlutterWright 让 AI(Claude Code)能像操作浏览器一样操作真机 / 模拟器上的 Flutter app —— 改完代码自己热重载、自己截图看效果、自己跳到任意页面,形成 **「改码 → 重载 → 截图看 → 再改」** 的自动闭环。
+FlutterWright 是一个 **Claude Code skill**,让 AI 像驱动浏览器一样驱动真机 / 模拟器上的 Flutter app —— 改完代码自己热重载、自己截图看效果、自己跳到任意页面,形成 **「改码 → 重载 → 截图看 → 再改」** 的自动闭环。
 
-它由两块组成,**SDK 是可选的**:
+它暴露一组 Playwright 风格的方法 —— `run` / `reload` / `screenshot` / `goto` / `setViewport` 等 —— **完整清单、签名与退出码见 [`SKILL.md`](skills/flutter-wright/SKILL.md)**。
 
-- **`flutter-wright`**(Claude Code skill,必需)—— 一组 bash 脚本,经 `adb` + 它持有的 `flutter run` daemon 驱动 app:起停、热重载、截图、锁视口。
-- **`flutter_wright_sdk`**(Dart SDK,可选)—— 加进 app 后,**额外解锁程序化导航**,让 AI 直接 `goto` 任意路由。只在 debug 启用,release 自动 no-op。
-
-skill 暴露 9 个 Playwright 风格的方法:
-
-| 方法 | 作用 | 需要 SDK? |
-|---|---|---|
-| `run` / `stop` | AI 后台起 / 停 `flutter run` 并持有 | 否 |
-| `reload` | 热重载持有的 app | 否 |
-| `screenshot <path>` | 设备整帧截图(含状态栏)→ PNG | 否 |
-| `setViewport <w> <h> <dpi>` / `resetViewport` | 锁定 / 恢复设备分辨率(像素对齐用) | 否 |
-| `goto <route> [args]` | **程序化跳转**到任意路由 | **是** |
-| `reset` | navigator pop 回根 | **是** |
-| `health` | SDK 探针 | **是** |
-
-> 一句话:**截图 + 热重载开箱即用,不碰 SDK;只有要让 AI 自己跳页面(`goto`/`reset`)才集成 SDK。** 导航**架构无关** —— Navigator 1.0 / GoRouter / GetX 都行,路由也**无需预先注册**。
+> 截图、热重载、视口锁定**开箱即用,不需要任何集成**(经 `adb` + skill 持有的 `flutter run` daemon 实现)。只有让 AI 程序化跳页(`goto`/`reset`)才需要给 app 加上可选的 `flutter_wright_sdk` —— 见下方「SDK 集成(可选)」。导航**架构无关**,Navigator 1.0 / GoRouter / GetX 都行,路由也无需预先注册。
 
 ## 怎么用
 
-### 最常见的循环:人工导航 + AI 改码迭代
+你不用自己敲命令 —— **在 Claude Code 会话里用大白话告诉 Claude 想干嘛,它替你调 skill。**
 
-**AI `run` 起 app → 人工把界面点到目标页 → AI 改 Dart → AI `reload` → AI `screenshot` 看效果 → 再改。** 这条闭环里 AI 不碰导航(你来点),只用 `run` + `reload` + `screenshot`,**完全不需要 SDK**。
+> **一次性准备**:Flutter 3.24+、`adb` 在 PATH、Android 真机(开 USB 调试)或模拟器;`git clone` 本仓库后给示例 app 补 Android 脚手架(`cd packages/example && flutter create . --platforms=android && flutter pub get`)。skill 在仓库的 `skills/flutter-wright/`。
 
-要让 AI 连导航也接管(全自动跳页),再集成 SDK(见下节)解锁 `goto`。
+一段典型对话(cwd 在 `packages/example`):
 
-### 快速上手(5 分钟)
+> **你**:把 example 这个 app 起起来。
+>
+> **Claude**:*(调用 `run lib/main.dart`)* 起好了。
+>
+> **你**:截个图看看现在长啥样。
+>
+> **Claude**:*(调用 `screenshot`)* 给你 → `before.png`。
+>
+> **你**:我把首页标题改了,热重载一下再截一张。
+>
+> **Claude**:*(调用 `reload` + `screenshot`)* 重载完,新图 → `after.png`。
+>
+> **你**:收工。
+>
+> **Claude**:*(调用 `stop`)* 已停。
 
-**前置**:Flutter 3.24+、Android 真机(开 USB 调试)或模拟器、`adb` 在 PATH。
-
-```bash
-# 克隆并给示例 app 补齐 Android 脚手架(不改动已有文件)
-git clone https://github.com/MySwallow/flutterwright.git
-cd flutterwright/packages/example
-flutter create . --platforms=android --org com.example.flutterwright
-flutter pub get
-```
-
-然后在任意 Claude Code 会话里(skill 在仓库的 `skills/flutter-wright/`),cwd 切到 `packages/example`,跑这条**无需 SDK** 的闭环:
-
-```
-Skill flutter-wright "run lib/main.dart"            # 起 app(lib/main.dart 是零 SDK 的生产入口)
-Skill flutter-wright "screenshot $CLAUDE_JOB_DIR/before.png"
-#  …改 lib/ 里的代码…
-Skill flutter-wright "reload"                       # 热重载,改动立即生效
-Skill flutter-wright "screenshot $CLAUDE_JOB_DIR/after.png"
-Skill flutter-wright "stop"
-```
-
-集成了 SDK 后,换成集成入口 `dev/main_dev.dart`,额外可让 AI 程序化跳页:
+这条「起 app → 截图 → 改码 → 重载 → 再截图」的闭环**完全不需要 SDK**。想精确点名某个方法,直接显式调用也行:
 
 ```
-Skill flutter-wright "run dev/main_dev.dart"
-Skill flutter-wright "goto /order/detail args={\"id\":\"ORD-001\"}"   # 设备跳到订单详情
-Skill flutter-wright "screenshot $CLAUDE_JOB_DIR/order.png"
-Skill flutter-wright "reset"                                          # 回根
-Skill flutter-wright "stop"
+Skill flutter-wright "run lib/main.dart"
+Skill flutter-wright "reload"
+Skill flutter-wright "screenshot $CLAUDE_JOB_DIR/cur.png"
 ```
 
-每个方法的签名、退出码、示例见 [`SKILL.md`](skills/flutter-wright/SKILL.md)。
+**想让 AI 自己跳页面?** 跳到任意路由(`goto`)要先给 app 集成 SDK(见下节),然后让它用集成入口 `dev/main_dev.dart` 起 app:
+
+> **你**:用集成 SDK 的入口起 app,跳到订单详情页。
+>
+> **Claude**:*(调用 `run dev/main_dev.dart` + `goto /order/detail args={"id":"ORD-001"}`)* 已跳转到 `/order/detail`。
 
 ## SDK 集成(可选)
 
