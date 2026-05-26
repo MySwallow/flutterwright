@@ -19,6 +19,9 @@ dev_dependencies:
   # Production lib/ has zero reference to it, so release builds exclude it.
   flutter_wright_sdk:
     path: ../flutter_wright_sdk
+  # Test-only: drives the GetX integration acceptance test
+  # (test/getx_integration_test.dart). Not used by app code.
+  get: ^4.6.6
 
 flutter:
   uses-material-design: true
