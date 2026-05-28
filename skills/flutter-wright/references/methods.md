@@ -4,54 +4,47 @@
 
 ## 目录
 
-- 进程:[`run`](#run) · [`stop`](#stop)
 - 观察:[`health`](#health) · [`snapshot`](#snapshot) · [`screenshot`](#screenshot) · [`logs`](#logs)
 - 交互:[`tap`](#tap) · [`type`](#type) · [`scroll`](#scroll) · [`longPress`](#longpress) · [`waitFor`](#waitfor) · [`pressKey`](#presskey) · [`back`](#back)
 - 导航:[`goto`](#goto) · [`reset`](#reset)
-- 环境/进程:[`reload`](#reload) · [`setViewport` / `resetViewport`](#setviewport--resetviewport)
+- 环境:[`setViewport` / `resetViewport`](#setviewport--resetviewport)
+- 目标:[`targets`](#targets)
 
 ---
-
-### `run`
-
-```
-Skill flutter-wright "run [target] [device=<id>] [project=<dir>]"
-```
-
-后台启动 `flutter run --machine`(Flutter 官方 daemon 协议),持有进程供后续 `reload` 驱动。`target` 默认 `lib/main.dart`;要用 snapshot/tap/type/goto 时传集成了 SDK 的 dev 入口(如 `dev/main_dev.dart`)。`device` 默认第一台已连接设备;`project` 默认当前工作目录。状态存于 `$CLAUDE_JOB_DIR/fw_daemon.{in,log,env}`。
-
-等到 app 首帧(`app.started`)才返回,超时 180s。
-
-示例:`Skill flutter-wright "run dev/main_dev.dart"`
-
-退出码:0 成功 / 10 adb 缺失 / 11 无设备 / 36 找不到 flutter(设 `FLUTTER_BIN`)/ 37 已在运行(先 `stop`)/ 38 app 未在 180s 内启动(看 `$CLAUDE_JOB_DIR/fw_daemon.log`)。
-
-### `stop`
-
-```
-Skill flutter-wright "stop"
-```
-
-向 owned daemon 发 `app.stop`,再终止进程、清理状态文件。**总是退出 0**,可安全用于清理钩子。没有 owned daemon 时打印提示并退出 0。
 
 ### `health`
 
 ```
-Skill flutter-wright "health"
+Skill flutter-wright "health [target=<name>]"
 ```
 
-显式跑一遍 **SDK** 探针(交互/导航的前提):`adb` + 至少一台设备 + `curl` + `adb forward tcp:9123`(幂等)+ `GET /health`,并**强制刷新**标记 `$CLAUDE_JOB_DIR/fw_health_done`。
+显式跑一遍 **SDK** 探针(交互/导航的前提):解析 target(`fw_resolve_target`)→ 探 `$base/health`(免 token),**不再依赖 adb**。
 
 通常不需要手动调 —— 交互/导航首次调用时会自动跑同一套检查。需要显式调用的场景:手工 debug、SDK job 中途重启想重做检查。
 
-退出码:0 成功 / 10 adb 缺失 / 11 没有设备 / 12 SDK 不可达 / 13 curl 缺失。
+退出码:0 成功 / 12 SDK 不可达 / 13 curl 缺失 / 14 无/非法目标注册表 / 15 目标歧义(多条目未指定 `target=`)。
 
-输出:`ok: device=<id> port=9123`。
+输出:`ok: base=<base>`(若注册表条目带 package,追加 ` package=<pkg>`)。
+
+### `targets`
+
+```
+Skill flutter-wright "targets"
+Skill flutter-wright "targets forward target=<name>"
+```
+
+无参时**列举**目标注册表(`$FW_TARGETS`)所有条目,并对每条 `GET <base>/health`(免 token)**探活**,打印 `NAME / BASE / PACKAGE / HEALTH(ok|unreachable)`,用于发现「有哪些目标、哪个连得上」。列举需 `curl`;`forward` 子命令不需要 `curl`,但需要 `adb` + 设备。注册表行格式:`name|base|token|package|deviceport`(后三者可留空,用 `|` 占位)。
+
+`forward target=<name>` 为指定目标建立可达性:`adb -s <device> forward tcp:<本地端口> tcp:<deviceport>`。本地端口 = `base` 里的端口部分;`deviceport` 取自注册表第 5 字段,**留空则默认同本地端口**(仅同机多 app 各占不同本地端口时才需显式填)。emulator 直连 / 已有 forward / 隧道场景不需要此步——可达性改为「注册 target 时一次性建立」,SDK 方法不再每次自动 `adb forward`。
+
+示例:`Skill flutter-wright "targets forward target=shop-qa"`
+
+退出码:0 / 10 adb 缺失 / 11 无设备 / 13 curl 缺失 / 14 注册表缺失或空 / 15 目标歧义或未找到 / 16 adb forward 失败 / 17 未知子命令。
 
 ### `snapshot`
 
 ```
-Skill flutter-wright "snapshot [out=<path>]"
+Skill flutter-wright "snapshot [out=<path>] [target=<name>]"
 ```
 
 `GET /snapshot`,返回当前页 Semantics 树的 Playwright 风格 YAML。每个可操作节点(有 tap/longPress/scroll/setText action 之一)末尾带 `[ref=sN]`,N 为 `SemanticsNode.id`。
@@ -67,7 +60,7 @@ Skill flutter-wright "snapshot [out=<path>]"
 ### `tap`
 
 ```
-Skill flutter-wright "tap \"<element>\" ref=<ref>"
+Skill flutter-wright "tap \"<element>\" ref=<ref> [target=<name>]"
 ```
 
 `POST /tap`,在 `ref` 解析到的 SemanticsNode 上派发 tap action。`<element>` 是给人/日志看的描述,**定位以 ref 为准**。成功响应回吐最新 snapshot。
@@ -79,7 +72,7 @@ Skill flutter-wright "tap \"<element>\" ref=<ref>"
 ### `type`
 
 ```
-Skill flutter-wright "type \"<element>\" ref=<ref> text=<text> [submit=<bool>]"
+Skill flutter-wright "type \"<element>\" ref=<ref> text=<text> [submit=<bool>] [target=<name>]"
 ```
 
 `POST /type`,把 `text` 写入 ref 对应的输入框(经 `EditableTextState.userUpdateTextEditingValue`,Unicode/中文安全)。`submit=true` 时额外发 `adb keyevent 66`(ENTER)提交表单。成功响应回吐 snapshot。
@@ -93,7 +86,7 @@ Skill flutter-wright "type \"<element>\" ref=<ref> text=<text> [submit=<bool>]"
 ### `scroll`
 
 ```
-Skill flutter-wright "scroll \"<element>\" ref=<ref> dir=<up|down|left|right>"
+Skill flutter-wright "scroll \"<element>\" ref=<ref> dir=<up|down|left|right> [target=<name>]"
 ```
 
 `POST /scroll`,在 ref 对应的可滚动节点上派发指定方向滚动。成功响应回吐 snapshot(滚动后新出现的节点带新 ref)。
@@ -105,7 +98,7 @@ Skill flutter-wright "scroll \"<element>\" ref=<ref> dir=<up|down|left|right>"
 ### `longPress`
 
 ```
-Skill flutter-wright "longPress \"<element>\" ref=<ref>"
+Skill flutter-wright "longPress \"<element>\" ref=<ref> [target=<name>]"
 ```
 
 `POST /long_press`,长按。成功响应回吐 snapshot。
@@ -117,7 +110,7 @@ Skill flutter-wright "longPress \"<element>\" ref=<ref>"
 ### `waitFor`
 
 ```
-Skill flutter-wright "waitFor (text=<s>|ref=<s>|gone=<s>) [timeout=<ms>]"
+Skill flutter-wright "waitFor (text=<s>|ref=<s>|gone=<s>) [timeout=<ms>] [target=<name>]"
 ```
 
 `GET /wait_for`,SDK 端轮询条件(默认 5000ms),满足返回 200 + snapshot;到期未满足回 408,脚本退 85。`text=` 匹配语义节点 label/value 的子串;`ref=` 等待该 ref 出现;`gone=` 等待某 text 消失。`text`/`ref`/`gone` 三选一。
@@ -151,19 +144,19 @@ Skill flutter-wright "back"
 ### `logs`
 
 ```
-Skill flutter-wright "logs [since=<n>] [grep=<pat>]"
+Skill flutter-wright "logs [since=<n>] [grep=<pat>] [target=<name>]"
 ```
 
-读本 skill `run` 持有的 daemon `app.log` 行(对应 `print`/`debugPrint`)。`since=<n>` 取最后 N 行;`grep=<pat>` 用 ERE 过滤。**不需要 SDK**;未 `run` 时退 92。
+`adb logcat -d` 读设备日志,**不托管 flutter 进程、不走 SDK**(进程由调用方自行 `flutter run`)。若目标注册表(`$FW_TARGETS`)可解析出 `package`,按 `adb shell pidof -s <package>` 取 pid 后 `logcat --pid` 精确过滤;否则回退 `logcat -d -s flutter`(多 app 会混)。`since=<n>` → `logcat -t <n>`(最后 N 行);`grep=<pat>` → ERE 管道过滤;`target=<name>` 选注册表条目(决定用哪个 app 的 package)。未设 `FW_TARGETS` 时直接走 `-s flutter`。
 
 示例:`Skill flutter-wright "logs since=50 grep=ERROR"`
 
-退出码:0 / 92 未 run(无 daemon log)或参数错。
+退出码:0 / 10 adb 缺失 / 11 无设备 / 14 已设 `FW_TARGETS` 但注册表缺失或空 / 15 目标歧义或未找到 / 92 参数错 / 93 指定 `package` 未在设备上运行。
 
 ### `goto`
 
 ```
-Skill flutter-wright "goto <route> [args=<json>] [popUntilRoot=<bool>]"
+Skill flutter-wright "goto <route> [args=<json>] [popUntilRoot=<bool>] [target=<name>]"
 ```
 
 跳转到 `<route>`。`args` 是任意 JSON 值,作为路由参数传入。`popUntilRoot` 默认 `true`(先回到根)。
@@ -177,7 +170,7 @@ Skill flutter-wright "goto <route> [args=<json>] [popUntilRoot=<bool>]"
 ### `reset`
 
 ```
-Skill flutter-wright "reset"
+Skill flutter-wright "reset [target=<name>]"
 ```
 
 `POST /reset`,把 navigator pop 回根。同 `goto` 一样需要 navigatorKey/adapter 已配置(未配置回 501)。
@@ -195,16 +188,6 @@ Skill flutter-wright "screenshot <out_path>"
 示例:`Skill flutter-wright "screenshot /tmp/order_detail.png"`
 
 退出码:0 / 20 空文件 / 21 文件 < 1KB / 22 不是 PNG(设备锁屏?)。
-
-### `reload`
-
-```
-Skill flutter-wright "reload"
-```
-
-向本 skill `run` 持有的 `flutter run --machine` daemon 发 `app.restart {fullRestart:false}`(热重载)。源文件改动由调用方在调用前完成。**前提是先 `run` 过** —— 没有 owned daemon 时退 33。
-
-退出码:0 / 33 没有 owned daemon(先 `run`,或自己按 `r`)/ 34 daemon 已死 / 35 重载失败或超时。
 
 ### `setViewport` / `resetViewport`
 

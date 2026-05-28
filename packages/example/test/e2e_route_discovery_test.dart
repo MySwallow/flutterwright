@@ -71,6 +71,7 @@ void main() {
       (WidgetTester tester) async {
     await withApp(tester, () async {
       await tester.runAsync(() => FlutterWright.start(
+            enabled: true,
             config: const FlutterWrightConfig(port: _port),
             navigatorKey: FlutterWright.navigatorKey,
           ));
@@ -95,6 +96,7 @@ void main() {
     await withApp(tester, () async {
       final customKey = GlobalKey<NavigatorState>();
       await tester.runAsync(() => FlutterWright.start(
+            enabled: true,
             config: const FlutterWrightConfig(port: _port),
             navigatorKey: customKey,
             routes: const <String>['/', '/login'],

@@ -14,7 +14,7 @@ https://github.com/MySwallow/flutterwright/security/advisories/new
 
 | 威胁                                          | 缓解措施                                                          |
 |-----------------------------------------------|-------------------------------------------------------------------|
-| 误把HTTP 服务带到生产用户手里                  | 默认 `enableInDebugOnly: true` — release 构建里 `start()` 是 no-op |
+| 误把HTTP 服务带到生产用户手里                  | `enabled` 默认 `false` — 不传 `enabled: true` 时 `start()` 是 no-op、不绑端口;集成方用 `enabled: kDebugMode` 或自己的「测试包?」判断接线 |
 | 本地恶意软件读写 mock 数据                    | 仅绑定 `127.0.0.1`，不允许绑 `0.0.0.0`                            |
 | Wi-Fi 上的网络攻击者                          | 仅绑定 `127.0.0.1`                                                |
 | 超大 body 导致 DoS                            | `maxBodyBytes` 默认 1 MiB，超过返回 413                           |
@@ -28,7 +28,7 @@ https://github.com/MySwallow/flutterwright/security/advisories/new
 
 ## 在 CI / 共享开发环境里的加固建议
 
-- 保持 `enableInDebugOnly: true`（默认）。
+- 用 `enabled: kDebugMode`（或你自己的「测试包?」判断）接线,正式包让它为 `false`(默认)。
 - 同一台电脑跑多个 Flutter 项目时，使用非默认端口：
   ```dart
   FlutterWrightConfig(port: 9124)

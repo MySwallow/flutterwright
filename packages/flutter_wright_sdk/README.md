@@ -6,7 +6,8 @@
 [`flutter-wright`](../../skills/flutter-wright/SKILL.md) Claude Code skill 用,
 但任何能讲 HTTP 的客户端(curl、Postman、你自己的脚本)都能调。
 
-> **Release 构建里这个包是 no-op。** `start()` 直接返回,不绑任何 socket。可以放心留在生产代码里。
+> **`enabled` 默认 `false`；不传或传 `enabled: kDebugMode` 时,release 下 `start()` 是 no-op、不绑 socket。**
+> 启用与否由调用方控制(非 SDK 自动识别构建类型);正式包让判断为 `false` 即彻底关闭。可以放心留在生产代码里。
 
 ## 安装
 
@@ -20,7 +21,7 @@ dev_dependencies:
       path: packages/flutter_wright_sdk
 ```
 
-> 图省事也可放 `dependencies` 直接在 `lib/main.dart` 里 import —— release 是 no-op,但 SDK 仍被编进生产包。两种范式详见 [`docs/integration-guide.md`](../../docs/integration-guide.md);`packages/example` 已按 dev_dependencies 范式组织。
+> 图省事也可放 `dependencies` 直接在 `lib/main.dart` 里 import —— 传 `enabled: kDebugMode` 时 release 下为 no-op,但 SDK 仍被编进生产包。两种范式详见 [`docs/integration-guide.md`](../../docs/integration-guide.md);`packages/example` 已按 dev_dependencies 范式组织。
 
 ## 集成(3 行,图省事路径)
 
@@ -29,7 +30,7 @@ import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FlutterWright.start();                  // 1. 启动控制 server(仅 debug)
+  await FlutterWright.start(enabled: kDebugMode); // 1. 启动控制 server(debug 为 true;release 为 false → no-op)
   runApp(FlutterWrightRoot(child: const MyApp()));     // 2. 让 /screenshot 可用
 }
 
@@ -46,7 +47,7 @@ class MyApp extends StatelessWidget {
 }
 
 // 可选:传入路由名列表,让 GET /routes 可发现
-await FlutterWright.start(routes: appRoutes.keys);
+await FlutterWright.start(enabled: kDebugMode, routes: appRoutes.keys);
 ```
 
 ## 不同路由架构(GoRouter / GetX)
@@ -55,18 +56,24 @@ await FlutterWright.start(routes: appRoutes.keys);
 
 ```dart
 // GoRouter(附 routesProvider,让 GET /routes 可发现)
-await FlutterWright.start(navigationAdapter: CallbackNavigationAdapter(
-  onNavigate: (route, args, _) => router.go(route, extra: args),
-  onReset: () => router.go('/'),
-  routesProvider: () => goRouterPaths(router.configuration.routes),
-));
+await FlutterWright.start(
+  enabled: kDebugMode, // debug 为 true;release 为 false → no-op
+  navigationAdapter: CallbackNavigationAdapter(
+    onNavigate: (route, args, _) => router.go(route, extra: args),
+    onReset: () => router.go('/'),
+    routesProvider: () => goRouterPaths(router.configuration.routes),
+  ),
+);
 
 // GetX
-await FlutterWright.start(navigationAdapter: CallbackNavigationAdapter(
-  onNavigate: (route, args, _) => Get.toNamed(route, arguments: args),
-  onReset: () => Get.until((r) => r.isFirst),
-  routesProvider: () => getPages.map((p) => p.name),
-));
+await FlutterWright.start(
+  enabled: kDebugMode,
+  navigationAdapter: CallbackNavigationAdapter(
+    onNavigate: (route, args, _) => Get.toNamed(route, arguments: args),
+    onReset: () => Get.until((r) => r.isFirst),
+    routesProvider: () => getPages.map((p) => p.name),
+  ),
+);
 ```
 
 ## HTTP API
@@ -95,10 +102,10 @@ curl -X POST http://localhost:9123/navigate \
 
 ```dart
 await FlutterWright.start(
+  enabled: kDebugMode, // debug 为 true;release 为 false → no-op
   config: const FlutterWrightConfig(
     host: '127.0.0.1',                    // 真实 app 里别用 0.0.0.0
     port: 9123,
-    enableInDebugOnly: true,              // false 时 profile 也启
     autoStart: true,
     screenshotMode: ScreenshotMode.flutter, // 或 .external(让 adb 截)
     maxBodyBytes: 1024 * 1024,

@@ -1,5 +1,15 @@
 # 更新日志
 
+## 0.8.0 - 2026-05-28
+
+### 破坏性变更
+- **启用改为宿主显式控制**:`FlutterWright.start({bool enabled = false})`。默认 **false → 不绑定控制面**(fail-safe,正式包零运行时攻击面)。移除 `FlutterWrightConfig.enableInDebugOnly`。
+  - 迁移:旧 `enableInDebugOnly: true`(仅 debug 启用)≈ `FlutterWright.start(enabled: kDebugMode)`;提测的 release 包按自有「测试包?」判断接线,如 `FlutterWright.start(enabled: AppEnv.isTestBuild)`。
+
+### 新增
+- **可选 token 鉴权**:`start({String? token})`。非空时除 `GET /health` 外所有请求须带匹配 `X-FW-Token`,否则 401(常量时间比对)。为空 = 不鉴权(仅 loopback)。token 由集成方自定,只从 env/本地配置读,**绝不进仓库**。
+- **`/health` 应用身份**:`start({String? appName, String? package})`,`/health`(免 token)回 `{ok, service, version, name, package}`,供发现/探活确认目标 app。`name`/`package` 未设时为 JSON `null`(键始终存在,便于强类型反序列化)。
+
 ## 0.7.0 - 2026-05-27
 
 ### 新增

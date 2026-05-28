@@ -117,6 +117,7 @@ void main() {
     Object? lastArgs;
 
     await tester.runAsync(() => FlutterWright.start(
+          enabled: true,
           config: const FlutterWrightConfig(port: _port),
           navigationAdapter: CallbackNavigationAdapter(
             onNavigate: (String route, Object? args, bool _) {
@@ -202,6 +203,7 @@ void main() {
       ];
 
       await tester.runAsync(() => FlutterWright.start(
+            enabled: true,
             config: const FlutterWrightConfig(port: _port),
             navigationAdapter: CallbackNavigationAdapter(
               // 必须是 void 块:返回 Get.toNamed 的 Future 会让 adapter await 到

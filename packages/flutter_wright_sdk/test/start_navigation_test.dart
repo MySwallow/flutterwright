@@ -22,7 +22,7 @@ void main() {
   // tearDown),故每个用例 finally 里 stop();tearDown 再调一次幂等兜底。
   testWidgets('未传 navigatorKey/adapter:/navigate 回 501',
       (WidgetTester tester) async {
-    await tester.runAsync(() => FlutterWright.start());
+    await tester.runAsync(() => FlutterWright.start(enabled: true));
     try {
       expect((await tester.runAsync(postNavigate))!, 501);
     } finally {
@@ -33,7 +33,7 @@ void main() {
   testWidgets('传 navigatorKey:/navigate 已注册(非 501)',
       (WidgetTester tester) async {
     await tester.runAsync(
-        () => FlutterWright.start(navigatorKey: FlutterWright.navigatorKey));
+        () => FlutterWright.start(enabled: true, navigatorKey: FlutterWright.navigatorKey));
     try {
       expect((await tester.runAsync(postNavigate))!, isNot(501));
     } finally {

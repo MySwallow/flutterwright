@@ -94,6 +94,7 @@ bool _looksLikePng(List<int> b) =>
 void main() {
   Future<void> bootApp(WidgetTester tester) async {
     await tester.runAsync(() => FlutterWright.start(
+          enabled: true,
           navigatorKey: FlutterWright.navigatorKey,
           routes: AppRouter.names,
         ));
@@ -210,8 +211,8 @@ void main() {
 
     setUp(() async {
       jobDir = await Directory.systemTemp.createTemp('fw_job_');
-      File('${jobDir.path}/fw_health_done')
-          .writeAsStringSync('device=desktop-test\nport=9123\nts=0\n');
+      File('${jobDir.path}/targets')
+          .writeAsStringSync('local|http://127.0.0.1:9123||com.test.app\n');
       scriptsDir =
           Directory('${Directory.current.path}/../../skills/flutter-wright/scripts')
               .absolute
@@ -229,8 +230,7 @@ void main() {
         'bash',
         <String>['$scriptsDir/$script', ...args],
         environment: <String, String>{
-          'CLAUDE_JOB_DIR': jobDir.path,
-          'VL_PORT': '9123',
+          'FW_TARGETS': '${jobDir.path}/targets',
         },
         includeParentEnvironment: true,
       );

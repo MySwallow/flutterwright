@@ -1,11 +1,11 @@
 ---
 name: flutter-wright
-description: 远程驱动一个【已经运行在已连接 Android 设备/模拟器上的 Flutter app】——Playwright 风格的运行时控制器。ONLY use when 你要对一个【正在运行的 app】做:截图 / 热重载 / 锁视口(只需 adb),或 snapshot 语义树、tap·type·scroll·longPress、waitFor、程序化 goto/reset(需 app 集成 flutter_wright_sdk,服务在 127.0.0.1:9123)。【不要】为以下触发:编写或讨论 Flutter 代码、改 SDK 源码、设计架构、跑单元/widget 测试,或当前没有已连接设备 + 运行中的 app——这些都不属于本 skill。Snapshot-first:先 snapshot 拿 ref 再 tap/type,对齐 Playwright MCP。仅 Android。18 个方法:run/stop/health/snapshot/tap/type/scroll/longPress/waitFor/pressKey/back/logs/goto/reset/screenshot/reload/setViewport/resetViewport。
+description: 远程驱动一个【已经运行在已连接 Android 设备/模拟器上的 Flutter app】——Playwright 风格的运行时控制器。ONLY use when 你要对一个【正在运行的 app】做:截图 / 锁视口(只需 adb),或 snapshot 语义树、tap·type·scroll·longPress、waitFor、程序化 goto/reset(需 app 集成 flutter_wright_sdk,服务地址经目标注册表配置)。【不要】为以下触发:编写或讨论 Flutter 代码、改 SDK 源码、设计架构、跑单元/widget 测试,或当前没有已连接设备 + 运行中的 app——这些都不属于本 skill。Snapshot-first:先 snapshot 拿 ref 再 tap/type,对齐 Playwright MCP。仅 Android。16 个方法:health/targets/snapshot/tap/type/scroll/longPress/waitFor/pressKey/back/logs/goto/reset/screenshot/setViewport/resetViewport。
 ---
 
 # FlutterWright — Flutter on Android 的 Playwright
 
-远程驱动一个**已运行在已连接 Android 设备(真机/模拟器)上的 Flutter app**:截图、热重载、视口锁定开箱即用;**snapshot-first 交互**(snapshot/tap/type/scroll/longPress/waitFor)与**程序化导航**(`goto`/`reset`)在 app 集成 `flutter_wright_sdk` 后解锁。仅 Android。
+远程驱动一个**已运行在已连接 Android 设备(真机/模拟器)上的 Flutter app**:截图、视口锁定开箱即用;**snapshot-first 交互**(snapshot/tap/type/scroll/longPress/waitFor)与**程序化导航**(`goto`/`reset`)在 app 集成 `flutter_wright_sdk` 后解锁。仅 Android。
 
 入口声明:**"Using flutter-wright to <method> <target>."**
 
@@ -13,9 +13,9 @@ description: 远程驱动一个【已经运行在已连接 Android 设备/模拟
 
 没有「首次必过 `/health`」的全局闸门——每个方法只查自己需要的:
 
-- **只需 adb**:`screenshot` / `setViewport` / `resetViewport` / `run` / `pressKey` / `back`。要 `adb` 在 PATH(退出码 10)+ 至少一台设备(11)。
-- **需 SDK**(app 集成 `flutter_wright_sdk`,服务在 `127.0.0.1:9123`):`snapshot` / `tap` / `type` / `scroll` / `longPress` / `waitFor` / `goto` / `reset` / `health`。在上面基础上再要 `curl`(13)+ `adb forward tcp:9123` + `GET /health` 通(SDK 不可达 12)。本 job 首次通过后写 `$CLAUDE_JOB_DIR/fw_health_done`,后续走 fast-path。`goto`/`reset` 还要宿主在 `FlutterWright.start()` 传了 `navigatorKey` 或 `navigationAdapter`,否则回 501(脚本退 41)。
-- **需先 `run`**:`reload` / `logs` 读本 skill 持有的 daemon,不查 adb/SDK(无 daemon 退 33/92)。
+- **只需 adb**:`screenshot` / `setViewport` / `resetViewport` / `pressKey` / `back` / `logs`。要 `adb` 在 PATH(退出码 10)+ 至少一台设备(11)。`logs` 默认 `adb logcat -s flutter`;设了 `FW_TARGETS` 时按注册表 `package` 精确过滤(注册表不可用则退 14/15)。
+- **需 SDK**(app 集成 `flutter_wright_sdk`,服务地址经目标注册表):`snapshot` / `tap` / `type` / `scroll` / `longPress` / `waitFor` / `goto` / `reset` / `health`。在上面基础上再要 `curl`(13)+ 目标注册表可解析(14/15)+ `GET <base>/health` 通(SDK 不可达 12)。`goto`/`reset` 还要宿主在 `FlutterWright.start()` 传了 `navigatorKey` 或 `navigationAdapter`,否则回 501(脚本退 41)。
+- **目标管理 `targets`**:列举需 `curl`(13)+ 注册表可解析(14);`targets forward` 需 `adb`(10/11)+ 注册表(14/15)。
 
 集成 SDK 是宿主 app 的一次性步骤(`FlutterWright.start()` 解锁交互;再传 navigatorKey 解锁 goto),不在本 skill 操作范围内。
 
@@ -23,8 +23,8 @@ description: 远程驱动一个【已经运行在已连接 Android 设备/模拟
 
 适用:
 
-- **交互闭环**(对齐 Playwright):`run` 起集成 SDK 的 dev 入口 → `snapshot` 拿 ref → `tap`/`type`/`scroll` 派发 → 动作自动回吐新 snapshot。
-- **人工导航 + AI 改码迭代**(最常见,**不需要 SDK**):`run` → 人工点到目标页 → 改 Dart → `reload` → `screenshot`。
+- **交互闭环**(对齐 Playwright):你自己 `flutter run` 起集成 SDK 的 dev 入口 → `snapshot` 拿 ref → `tap`/`type`/`scroll` 派发 → 动作自动回吐新 snapshot。
+- **人工导航 + AI 改码迭代**(最常见,**不需要 SDK**):你自己 `flutter run` → 人工点到目标页 → 改 Dart → 控制台按 `r` 热重载 → `screenshot`。
 - **编排构件**:上层 skill 把这些方法当原子操作调用。
 
 不要使用(这些都**不该触发**本 skill):
@@ -48,19 +48,26 @@ description: 远程驱动一个【已经运行在已连接 Android 设备/模拟
 | 等某段文字或元素出现 / 消失 | `waitFor text=… \| ref=… \| gone=…` | SDK |
 | 跳到某个路由页 / 回根 | `goto <route>` / `reset` | SDK + navigatorKey/adapter |
 | 截图看效果(不用于定位) | `screenshot <out>` | 仅 adb |
-| 起 app / 停 app | `run [target]` / `stop` | adb |
-| 改了 Dart 代码要生效 | `reload` | 已 `run` |
-| 看 app 运行日志 | `logs [since=] [grep=]` | 已 `run` |
+| 看有哪些目标 app / 哪个连得上 / 建端口转发 | `targets` / `targets forward target=<name>` | 列举需 curl,forward 需 adb |
+| 看 app 运行日志 | `logs [since=] [grep=]` | 仅 adb |
 | 按系统返回 / 回车等硬件键 | `back` / `pressKey <key>` | 仅 adb |
 | 锁定 / 恢复设计分辨率 | `setViewport` / `resetViewport` | 仅 adb |
 
 定位歧义(同一 label 多个节点、ref 失效)时:重新 `snapshot`,用最新 ref;`screenshot` 只看效果、不拿来定位。
 
+## 目标(target)
+
+SDK 方法(snapshot/tap/type/scroll/longPress/waitFor/goto/reset/health)不再硬编码 `127.0.0.1:9123`,而是经**目标注册表**解析出 `base`(本地可达地址)、可选 `token`、可选 `package`。注册表由集成方/operator 维护在 **git 外**(环境变量 `FW_TARGETS` 指向的文件),**token 绝不进仓库**。单条目即默认;多条目时用 `target=<name>` 选择,未选则报错提示。base 配错只是连不上(快速失败),不引入安全风险。
+
+**注册表格式**:每行一条 `name|base|token|package|deviceport`,`#` 开头或空行忽略;`token`/`package`/`deviceport` 可留空(用 `|` 占位)。`deviceport` 留空时默认 = `base` 端口,仅在「同机多 app 各占不同本地端口、转发到各自设备端口」时才需显式填。
+
+**注册一个目标 = 写一条 + 建可达性**(可达性不再每次自动建):① 在 `$FW_TARGETS` 写一行;② 需要时 `targets forward target=<name>` 跑一次 `adb forward tcp:<本地> tcp:<设备>`(emulator 直连 / 已有 forward / 隧道场景免此步)。`targets`(无参)列举所有条目并逐条探活(免 token 的 `/health`),用于发现「有哪些目标、哪个连得上」。
+
 ## 工作法(snapshot-first)
 
 像 Playwright 一样:**先 `snapshot` 拿 `ref`,再用 `ref` 去操作。**
 
-- `ref`(`sN`,N 为 `SemanticsNode.id`)**临时**:只有最近一次 `snapshot` 发出过的能用,页面一变(导航/reload/动作)就重新 `snapshot`,旧 ref 失效(端点回 404、脚本退 51)。
+- `ref`(`sN`,N 为 `SemanticsNode.id`)**临时**:只有最近一次 `snapshot` 发出过的能用,页面一变(导航/热重载/动作)就重新 `snapshot`,旧 ref 失效(端点回 404、脚本退 51)。
 - `tap`/`type`/`scroll`/`longPress` 成功后**自动回吐**最新 snapshot 到 stdout,通常无需手动再 `snapshot`。
 - 调用形式 **element + ref 双参**:`tap "<element 描述>" ref=<ref>` —— `<element>` 仅作日志/可读性用,定位以 `ref` 为准。
 - 导航类动作(`goto`/`reset`)界面若下一帧才重建,用 `waitFor` 做确定性同步。
@@ -70,9 +77,8 @@ description: 远程驱动一个【已经运行在已连接 Android 设备/模拟
 
 | 方法 | 用途 | 脚本 |
 |---|---|---|
-| `run [target] [device=<id>] [project=<dir>]` | 后台启 `flutter run --machine` 并持有(reload/logs 的前提) | `run.sh` |
-| `stop` | 停止 owned daemon + 清理 | `stop.sh` |
 | `health` | 显式 SDK 探针(交互/导航相关) | `health.sh` |
+| `targets [forward target=<name>]` | 列举注册表目标 + 逐条探活;`forward` 建立 adb 端口转发 | `targets.sh` |
 | `snapshot [out=<path>]` | 取当前页语义树 YAML(带 ref) | `snapshot.sh` |
 | `tap "<element>" ref=<ref>` | 在 ref 节点上派发 tap(响应回吐 snapshot) | `tap.sh` |
 | `type "<element>" ref=<ref> text=<text> [submit=<bool>]` | 写入文本(submit 发 ENTER);响应回吐 snapshot | `type.sh` |
@@ -81,23 +87,24 @@ description: 远程驱动一个【已经运行在已连接 Android 设备/模拟
 | `waitFor (text=<s>\|ref=<s>\|gone=<s>) [timeout=<ms>]` | 轮询条件,满足返回 200 + snapshot;超时 85 | `wait_for.sh` |
 | `pressKey <enter\|back\|home\|tab\|del\|search\|menu>` | adb 系统/IME 键(免 SDK) | `press_key.sh` |
 | `back` | 系统返回(adb keyevent 4,免 SDK) | `back.sh` |
-| `logs [since=<n>] [grep=<pat>]` | 读 owned daemon `app.log`(免 SDK) | `logs.sh` |
+| `logs [since=<n>] [grep=<pat>] [target=<name>]` | `adb logcat`(按注册表 package 或 `-s flutter`),免 SDK | `logs.sh` |
 | `goto <route> [args=<json>] [popUntilRoot=<bool>]` | 程序化跳转到一个路由(需 SDK + navigatorKey/adapter) | `goto.sh` |
 | `reset` | 把 navigator pop 到根(需 SDK + navigatorKey/adapter) | `reset.sh` |
 | `screenshot <out_path>` | 设备整帧截图(含状态栏)输出 PNG | `screenshot.sh` |
-| `reload` | 热重载 owned daemon(`app.restart`) | `reload.sh` |
 | `setViewport <w> <h> <dpi>` | 锁定 `wm size` + `wm density` | `set_viewport.sh` |
 | `resetViewport` | 恢复 `wm size` + `wm density` 默认值 | `reset_viewport.sh` |
 
 **每个方法的完整签名、参数约束、示例与逐条退出码见 [`references/methods.md`](references/methods.md)。**
+
+> **迁移**:`run` / `reload` / `stop` 已移除——本 skill 不再托管 flutter 进程。你自己 `flutter run`(集成 SDK 时跑 dev 入口),需热重载就在它的控制台按 `r`;`logs` 改用 `adb logcat`(按注册表 `package` 或 `-s flutter`),不再依赖 `run`。
 
 ## 派发约定
 
 当以 `Skill flutter-wright "<method> <args...>"` 形式调用时:
 
 1. 把第一个由空白分隔的 token 解析为**方法名**。
-2. 把剩余 token 解析为位置参数(`element` / `route` / `out_path` / `target` / 宽高 / key 名),随后是 `key=value` 对(`ref`/`text`/`dir`/`args`/`popUntilRoot`/`out`/`since`/`grep`/`timeout`/`submit`/`device`/`project`)。`<element>` 用引号位置参数(`tap "登录" ref=s12`)。
-3. 调用 `bash skills/flutter-wright/scripts/<method>.sh <args>`。
+2. 把剩余 token 解析为位置参数(`element` / `route` / `out_path` / 宽高 dpi / key 名),随后是 `key=value` 对(`ref`/`text`/`dir`/`args`/`popUntilRoot`/`out`/`since`/`grep`/`timeout`/`submit`/`target`)。`<element>` 用引号位置参数(`tap "登录" ref=s12`)。`target=<name>` 是「目标注册表」条目名(选驱动哪个 app),作为 `key=value` 排在位置参数之后(写 `goto /route target=shop`)。
+3. 调用对应脚本 `bash skills/flutter-wright/scripts/<script>.sh <args>`。**脚本文件名是方法名的 snake_case**——驼峰里每个大写字母转 `_<小写>`:`waitFor`→`wait_for.sh`、`longPress`→`long_press.sh`、`pressKey`→`press_key.sh`、`setViewport`→`set_viewport.sh`、`resetViewport`→`reset_viewport.sh`;其余方法(`snapshot`/`tap`/`type`/`scroll`/`goto`/`reset`/`health`/`logs`/`back`/`screenshot`/`targets`)名一致。**以「方法」表脚本列为准。**
 
 **含 `"` / `\` / 换行的值不支持** —— 交互方法的 element/ref/text 会被脚本侧拒绝。
 
@@ -112,13 +119,12 @@ description: 远程驱动一个【已经运行在已连接 Android 设备/模拟
 |---|---|---|
 | 0 | 成功 | — |
 | 10-13 | 环境 / 设备 | 10 adb / 11 设备 / 12 SDK 不可达 / 13 curl |
+| 14-17 | 目标 / 注册表 | 14 注册表缺失或空 / 15 目标歧义或未找到 / 16 adb forward 失败 / 17 targets 未知子命令 |
 | 20-22 | 截图 | screenshot.sh |
-| 33-36 | reload / run | 33 未 run / 34 daemon 已死 / 35 重载失败或超时 / 36 找不到 flutter |
-| 37-38 | run | 37 已在运行 / 38 app 未启动 |
 | 40-43 | 导航 | goto.sh(需 SDK + navigatorKey/adapter,未配置 → 41/501) |
 | 50-57 | 交互 | tap/long_press/scroll(50 缺参 / 51 ref 过期 / 52 节点无对应 action / 53-55 type / 56 scroll 参数 / 57 其它) |
 | 60-61 | Viewport | set_viewport.sh |
 | 70-71 | 重置 | reset.sh(需 SDK + navigatorKey/adapter) |
 | 80-81 | snapshot | snapshot.sh |
 | 84-85 | waitFor | wait_for.sh(85 超时) |
-| 90-92 | 按键 / 日志 | press_key/back(90/91)/ logs(92) |
+| 90-93 | 按键 / 日志 | press_key/back(90 未知 key / 91 失败)/ logs(92 参数错 / 93 指定 package 未运行;另用 adb 10/11、注册表 14/15) |

@@ -56,6 +56,7 @@ String? refFor(String yaml, String label) {
 /// 启动控制平面(由 `start()` 强制常开语义树)并导航到登录页。
 Future<void> bootLogin(WidgetTester tester) async {
   await tester.runAsync(() => FlutterWright.start(
+        enabled: true,
         navigatorKey: FlutterWright.navigatorKey,
         routes: AppRouter.names,
       ));
@@ -159,10 +160,10 @@ void main() {
     late String scriptsDir;
 
     setUp(() async {
-      // 写 fw_health_done marker 走 fast-path,跳过 adb 检查;脚本直接 curl 9123。
+      // 写一条目标注册表,指向本机 9123(无 token);脚本经 fw_resolve_target 解析。
       jobDir = await Directory.systemTemp.createTemp('fw_job_');
-      File('${jobDir.path}/fw_health_done')
-          .writeAsStringSync('device=desktop-test\nport=9123\nts=0\n');
+      File('${jobDir.path}/targets')
+          .writeAsStringSync('local|http://127.0.0.1:9123||com.test.app\n');
       scriptsDir = Directory(
               '${Directory.current.path}/../../skills/flutter-wright/scripts')
           .absolute
@@ -176,8 +177,7 @@ void main() {
     Future<ProcessResult> runScript(String script, List<String> args) {
       return Process.run('bash', <String>['$scriptsDir/$script', ...args],
           environment: <String, String>{
-            'CLAUDE_JOB_DIR': jobDir.path,
-            'VL_PORT': '9123',
+            'FW_TARGETS': '${jobDir.path}/targets',
           },
           includeParentEnvironment: true);
     }

@@ -14,7 +14,6 @@ class FlutterWrightConfig {
   const FlutterWrightConfig({
     this.host = '127.0.0.1',
     this.port = 9123,
-    this.enableInDebugOnly = true,
     this.autoStart = true,
     this.screenshotMode = ScreenshotMode.flutter,
     this.maxBodyBytes = 1024 * 1024,
@@ -26,9 +25,6 @@ class FlutterWrightConfig {
 
   /// TCP port.
   final int port;
-
-  /// If true (default), `start()` returns without binding when not in debug.
-  final bool enableInDebugOnly;
 
   /// If true (default), `start()` binds immediately. Set false to defer
   /// to a later `FlutterWright.bind()` call.

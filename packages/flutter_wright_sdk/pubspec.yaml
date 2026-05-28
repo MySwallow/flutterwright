@@ -1,6 +1,6 @@
 name: flutter_wright_sdk
 description: Debug-only in-app HTTP server for Flutter apps — powers Playwright-style automation via the flutter-wright skill.
-version: 0.7.0
+version: 0.8.0
 homepage: https://github.com/MySwallow/flutterwright
 repository: https://github.com/MySwallow/flutterwright
 

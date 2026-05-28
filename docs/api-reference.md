@@ -33,7 +33,7 @@ Content-Type: text/plain; charset=utf-8
   - text "Hello" [ref=s4]
 ```
 
-> 若语义树为空(未调 `FlutterWright.start()` 或 release 构建),返回 `# (no semantics data available)`。
+> 若语义树为空(未调 `FlutterWright.start()` 或传了 `enabled: false` → no-op),返回 `# (no semantics data available)`。
 
 ---
 
@@ -259,7 +259,9 @@ FlutterWright.isRunning;      // bool
 | `navigationAdapter` | `NavigationAdapter?` | 可选自定义 adapter;传了则注册 `/navigate` `/reset` `/routes`;不传且也没有 `navigatorKey` 时这三个端点返回 501 |
 | `navigatorKey` | `GlobalKey<NavigatorState>?` | 宿主已有自己的 navigatorKey 时传入,仅 Navigator 1.0 路径用;传了则注册导航端点 |
 | `routes` | `Iterable<String>?` | 路由名列表,喂给 `GET /routes`;不传则由 adapter 的 `discoverableRoutes` 决定(可能为 `[]`) |
-| `config` | `FlutterWrightConfig?` | host/port/enableInDebugOnly 等配置 |
+| `enabled` | `bool` | 默认 `false`;为 `false` 时 `start()` 直接 no-op、不绑端口。集成方接线为 `kDebugMode` 或自己的「测试包?」判断 |
+| `token` | `String?` | 非空时除 `/health` 外所有请求校验 `X-FW-Token`,不符回 401(常量时间比对);为空 = 不鉴权(仅 loopback) |
+| `config` | `FlutterWrightConfig?` | host/port/screenshotMode/maxBodyBytes 等配置(`enabled` 已提升为顶层参数) |
 
 > **交互闭环(snapshot/tap/type/scroll/longPress/waitFor)只需 `FlutterWright.start()`,无需 navigatorKey。** `start()` 自动持有常开语义句柄(`ensureSemantics`),`stop()` 时释放。
 

@@ -101,6 +101,7 @@ void main() {
     String? lastReset;
 
     await tester.runAsync(() => FlutterWright.start(
+          enabled: true,
           config: const FlutterWrightConfig(port: _port),
           navigationAdapter: CallbackNavigationAdapter(
             onNavigate: (r, args, _) => route.value = r,

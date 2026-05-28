@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 
@@ -23,7 +22,7 @@ import 'navigation_adapter.dart';
 class FlutterWright {
   FlutterWright._();
 
-  static const String version = '0.7.0';
+  static const String version = '0.8.0';
 
   /// Convenience [GlobalKey] for the **Navigator 1.0** integration path: pass
   /// it to `MaterialApp(navigatorKey:)`. Stable across the app lifetime.
@@ -43,16 +42,21 @@ class FlutterWright {
 
   /// Bind the control server. Idempotent — calling twice is a no-op.
   ///
-  /// In release builds (or when `config.enableInDebugOnly == true` and
-  /// `kDebugMode` is false), returns without binding.
+  /// Returns without binding unless `enabled` is true. The host controls this
+  /// (e.g. `enabled: AppEnv.isTestBuild`); production builds pass false → the
+  /// control plane never binds (fail-safe).
   static Future<void> start({
+    bool enabled = false,
+    String? token,
+    String? appName,
+    String? package,
     FlutterWrightConfig config = const FlutterWrightConfig(),
     NavigationAdapter? navigationAdapter,
     GlobalKey<NavigatorState>? navigatorKey,
     Iterable<String> routes = const <String>[],
   }) async {
-    if (config.enableInDebugOnly && !kDebugMode) {
-      vlLog('release build: SDK disabled');
+    if (!enabled) {
+      vlLog('FlutterWright disabled (enabled: false)');
       return;
     }
     if (_server != null) {
@@ -64,7 +68,7 @@ class FlutterWright {
     _semanticsHandle ??= SemanticsBinding.instance.ensureSemantics();
 
     final handlers = <Handler>[
-      HealthHandler(version),
+      HealthHandler(version, appName: appName, package: package),
       ScreenshotHandler(config.screenshotMode),
       SnapshotHandler(),
       TapHandler(),
@@ -98,7 +102,11 @@ class FlutterWright {
         ..add(NavNotConfiguredHandler('/reset', 'POST'));
     }
 
-    _server = FlutterWrightHttpServer(config: config, handlers: handlers);
+    _server = FlutterWrightHttpServer(
+      config: config,
+      handlers: handlers,
+      token: token,
+    );
     if (config.autoStart) {
       await _server!.start();
     }
