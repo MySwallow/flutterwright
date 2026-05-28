@@ -8,11 +8,11 @@
 
 集成是**按方法分摊**的,不必一次接全。先看你要用哪些能力:
 
-> `reload`/`screenshot`(adb) 不需要 SDK;下表列出所有需要集成 SDK 的能力。
+> `screenshot`(adb) 不需要 SDK;下表列出所有需要集成 SDK 的能力。
 
 | 你想用 | 需要做的 | 对应章节 |
 |---|---|---|
-| `reload` + adb 截图(导航靠人工) | **无需集成 SDK** —— 让 flutter-wright skill `run` 起你的 app | — |
+| adb 截图(导航靠人工) | **无需集成 SDK** —— 你自己 `flutter run` 起 app,需热重载就在控制台按 `r` | — |
 | `snapshot` / `tap` / `type` / `scroll` / `longPress` / `waitFor`(交互闭环) | `await FlutterWright.start();` 即可 —— **无需** navigatorKey | §1 §2 |
 | `goto` / `reset`(命名路由) | `await FlutterWright.start();` 并把 `FlutterWright.navigatorKey` 注入 `MaterialApp(navigatorKey:)` | §1 §2 §3 |
 | `goto`(GoRouter / GetX 等) | `await FlutterWright.start();` 并给 `start()` 传 `CallbackNavigationAdapter` | §1 §2 §5 |

@@ -1,10 +1,10 @@
 # 故障排查
 
-按 "现象在哪一层暴露" 分组。所有方法名为 flutter-wright v1 命名(`run/stop/health/goto/screenshot/reload/setViewport/resetViewport/reset`)。
+按 "现象在哪一层暴露" 分组。涉及方法:`health` / `targets` / `snapshot` / `tap` / `type` / `scroll` / `goto` / `reset` / `screenshot` / `setViewport` / `resetViewport` / `logs`。(本 skill 不再托管 flutter 进程——`run`/`reload`/`stop` 已移除,见「起停 app / 热重载」段。)
 
 ## `health` 失败
 
-> **退出码 10-13 来自需要 SDK 的方法(`goto`/`reset`/`health`)** —— 它们检查 `adb` + 设备 + `adb forward` + `GET /health`。`screenshot`/`setViewport`/`run` 只查 `adb` + 设备(10/11)。`reload` 不查这些,只校验 owned daemon(见下方 `reload` 段)。
+> **退出码 12-15 来自需要 SDK 的方法(`snapshot`/`tap`/`type`/`scroll`/`longPress`/`waitFor`/`goto`/`reset`/`health`)** —— 它们要 `curl`(13)+ 目标注册表可解析(14 注册表缺失或空 / 15 目标歧义或未找到)+ `GET <base>/health` 通(12 不可达)。`screenshot`/`setViewport`/`resetViewport`/`pressKey`/`back`/`logs` 只查 `adb` + 设备(10/11)。可达性不再每次自动建,见 `targets forward`。
 
 ### exit 10:adb 未安装
 
@@ -31,12 +31,15 @@ emulator -list-avds
 emulator -avd <name> -no-snapshot-load &
 ```
 
-### exit 12:SDK 在 `127.0.0.1:9123` 不可达
+### exit 12:SDK 在注册表 `base` 不可达
 
-- `flutter run` 还在跑吗?  `pgrep -f 'flutter run'`
-- 端口转发?  `adb forward --list | grep 9123`(没有就 `adb forward tcp:9123 tcp:9123`)
-- SDK 真的 bind 了?`flutter run` 输出应有 `[flutter_wright_sdk] listening on http://127.0.0.1:9123`
-- 主机上 9123 被占?  `lsof -i :9123`
+`base` 是目标注册表(`$FW_TARGETS`)条目里的本地可达地址(如 `http://127.0.0.1:9123`)。
+
+- app 还在跑吗,且 `start(enabled: ...)` 的 `enabled` 为真?  `pgrep -f 'flutter run'`
+- 可达性建了吗?  `Skill flutter-wright "targets forward target=<name>"` 跑一次 `adb forward`;`adb forward --list` 看有没有对应转发
+- SDK 真的 bind 了?`flutter run` 输出应有 `[flutter_wright_sdk] listening on http://127.0.0.1:<port>`
+- 本地端口被占?  `lsof -i :<port>`
+- 不确定哪个目标连得上?  `Skill flutter-wright "targets"` 列举所有条目并逐条探活(HEALTH=ok/unreachable)
 
 ### exit 13:curl 未安装
 
@@ -85,31 +88,14 @@ adb shell wm size reset
 adb shell wm density reset
 ```
 
-## `reload` 失败
+## 起停 app / 热重载(本 skill 不再托管)
 
-新模型:`reload` 向本 skill `run` 持有的 `flutter run --machine` daemon 发 `app.restart`,**不经 SDK**。
+`run` / `reload` / `stop` 已移除——本 skill 只驱动一个**已在运行**的 app,不托管 flutter 进程。对应操作改为:
 
-### exit 33: 没有 owned daemon
-
-没 `run` 过(无 `$CLAUDE_JOB_DIR/fw_daemon.env`),或你自己终端起了 flutter run(本 skill 持有不了)。两选一:
-- 先 `Skill flutter-wright "run dev/main_dev.dart"` 让 AI 起 app;
-- 你自己终端起的就在那个控制台按 `r`。
-
-### exit 34: daemon 已死
-
-`run` 起的进程退出了(可能 app crash 或被 kill)。看 `$CLAUDE_JOB_DIR/fw_daemon.log`,重新 `run`。
-
-### exit 35: 重载失败或超时
-
-dart 编译错误(语法错、`main()` 改了需 hot restart),或 60s 内没拿到响应。看 `$CLAUDE_JOB_DIR/fw_daemon.log` 末尾的 reload 结果。需要 hot restart 时 v1 未暴露,临时 workaround:`stop` 后重新 `run`。
-
-### exit 36: 找不到 flutter(`run`)
-
-`run` 定位不到 flutter 二进制。设 `FLUTTER_BIN=/path/to/flutter`,或把 flutter 加进 PATH。
-
-### exit 38: app 未在 180s 内启动(`run`)
-
-看 `$CLAUDE_JOB_DIR/fw_daemon.log`:常见是 build 失败、设备未授权、或 target 入口路径错。
+- **起 app**:你自己 `flutter run`(集成 SDK 时跑 dev 入口,如 `flutter run -t dev/main_dev.dart`)。找不到 flutter 就把它加进 PATH——本 skill 不再代起进程,故无 `FLUTTER_BIN`。
+- **热重载**:在你那个 `flutter run` 控制台按 `r`(需 hot restart 按 `R`)。
+- **看日志**:`Skill flutter-wright "logs [since=<n>] [grep=<pat>]"` —— `adb logcat`,不依赖进程托管;注册表有 `package` 时按 pid 精确过滤,否则 `-s flutter`(见 `logs` 退出码 92 参数错 / 93 指定 package 未运行)。
+- **建可达性**:`Skill flutter-wright "targets forward target=<name>"` 跑一次 `adb forward`(注册 target 时一次性建,不再每次自动)。
 
 ## `setViewport` 失败 / 任务结束后设备状态奇怪
 
@@ -135,7 +121,7 @@ App 卡在奇怪路由:`Skill flutter-wright "reset"` 或 `adb shell am force-st
 `GET /snapshot` 返回的 YAML 只有注释行,没有任何节点。原因与排查:
 
 - **没调 `FlutterWright.start()`**:SDK 的 `start()` 持有常开语义句柄(`ensureSemantics`)。若未调用,语义树为空。确认 `dev/main_dev.dart`(或对应入口)里有 `await FlutterWright.start(...)` 且在 `runApp` 之前。
-- **release / profile 构建**:`kDebugMode == false` 时 SDK 自动不启动(no-op),语义树不会开启。确认是 debug 构建。
+- **`start()` 未启用**:`enabled` 默认 `false`,`start()` 直接 no-op、不开语义树。确认传了 `enabled: true`(或 `enabled: kDebugMode` 而当前是 debug 构建)——SDK 不再自动感知构建模式,启用与否由调用方传的 `enabled` 决定。
 - **验证**:`curl http://localhost:9123/snapshot` 应返回包含节点的 YAML;`GET /health` 应回 `{"ok":true}`。
 
 ### `tap` / `type` / `scroll` / `long_press` 返回 404「ref not in latest snapshot」
@@ -200,27 +186,42 @@ flutter test
 
 期望:`All tests passed!`。
 
-### 第 3 步 — 用 skill 启动 example app
+### 第 3 步 — 启动 example app(你自己起)
 
-在 Claude Code 会话里(cwd 切到 `packages/example`):
+在一个终端里(cwd = `packages/example`):
+
+```bash
+flutter run -t dev/main_dev.dart
+# 等首帧;输出里应有 [flutter_wright_sdk] listening on http://127.0.0.1:9123
+```
+
+(`dev/main_dev.dart` 是集成了 SDK 的 debug 入口,`start(enabled: kDebugMode)` 解锁控制面 + goto;`lib/main.dart` 是零 SDK 生产入口。需要热重载就在这个控制台按 `r`。)
+
+### 第 4 步 — 注册目标 + 端口转发 + 方法烟雾测试
+
+先写目标注册表(git 外)并建可达性:
+
+```bash
+printf 'example|http://127.0.0.1:9123||com.example.flutter_wright\n' > /tmp/fw-targets
+export FW_TARGETS=/tmp/fw-targets
+Skill flutter-wright "targets forward target=example"
+# → forwarded tcp:9123 -> device tcp:9123 (example)
+```
+
+在 Claude Code 会话里(任何 cwd,只要装了 skill 且 `FW_TARGETS` 已设):
 
 ```
-Skill flutter-wright "run dev/main_dev.dart"
-# → ok: appId=<id> device=<id> target=dev/main_dev.dart
-```
+Skill flutter-wright "targets"
+# → 列出 example,HEALTH=ok
 
-(`dev/main_dev.dart` 是集成了 SDK 的 debug 入口,启用 goto;`lib/main.dart` 是零 SDK 生产入口。)
-
-### 第 4 步 — 端口转发 + 方法烟雾测试
-
-在 Claude Code 会话里(任何 cwd 都行,只要安装了 flutter-wright skill):
-
-```
 Skill flutter-wright "health"
-# → ok: device=<id> port=9123
+# → ok: base=http://127.0.0.1:9123 package=com.example.flutter_wright
 
 Skill flutter-wright "goto /home"
 # → {"ok":true,"route":"/home"}  设备应跳到 /home
+
+Skill flutter-wright "snapshot"
+# → 当前页 Semantics YAML(可操作节点带 [ref=sN])
 
 Skill flutter-wright "screenshot /tmp/fw-smoke.png"
 # → captured: /tmp/fw-smoke.png (<size> bytes)
@@ -228,9 +229,7 @@ Skill flutter-wright "screenshot /tmp/fw-smoke.png"
 Skill flutter-wright "goto /order/detail"
 # 设备应显示 order 详情页
 
-# 改 example/lib/pages/home_page.dart 任一文字(比如"Hello" → "Hi")
-Skill flutter-wright "reload"
-# → reloaded   设备应反映改动
+# 改 example/lib/pages/home_page.dart 任一文字,在你的 flutter run 控制台按 r 热重载,设备应反映改动
 
 Skill flutter-wright "setViewport 1080 2400 480"
 # → viewport: 1080x2400 @ 480dpi
@@ -241,8 +240,8 @@ Skill flutter-wright "reset"
 Skill flutter-wright "resetViewport"
 # → restored: size=<orig> density=<orig>
 
-Skill flutter-wright "stop"
-# → stopped: appId=<id>
+Skill flutter-wright "logs since=50"
+# → 最近 50 行 adb logcat(注册表有 package 时按 pid 过滤)
 ```
 
 ### 第 5 步 — 确认设备被还原
