@@ -18,7 +18,10 @@ import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
 /// docs/integration-guide.md).
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FlutterWright.start(routes: AppRouter.names);
+  await FlutterWright.start(
+    navigatorKey: FlutterWright.navigatorKey,
+    routes: AppRouter.names,
+  );
   runApp(
     FlutterWrightRoot(
       child: createApp(navigatorKey: FlutterWright.navigatorKey),

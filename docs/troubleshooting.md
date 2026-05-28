@@ -128,6 +128,39 @@ adb shell wm density reset
 
 App 卡在奇怪路由:`Skill flutter-wright "reset"` 或 `adb shell am force-stop <pkg>` 重启。
 
+## snapshot / tap / type / scroll 相关
+
+### snapshot 返回空(只有 `# (no semantics ...)` 占位)
+
+`GET /snapshot` 返回的 YAML 只有注释行,没有任何节点。原因与排查:
+
+- **没调 `FlutterWright.start()`**:SDK 的 `start()` 持有常开语义句柄(`ensureSemantics`)。若未调用,语义树为空。确认 `dev/main_dev.dart`(或对应入口)里有 `await FlutterWright.start(...)` 且在 `runApp` 之前。
+- **release / profile 构建**:`kDebugMode == false` 时 SDK 自动不启动(no-op),语义树不会开启。确认是 debug 构建。
+- **验证**:`curl http://localhost:9123/snapshot` 应返回包含节点的 YAML;`GET /health` 应回 `{"ok":true}`。
+
+### `tap` / `type` / `scroll` / `long_press` 返回 404「ref not in latest snapshot」
+
+ref 已过期 — 自上次 snapshot 后,UI 发生了变化(页面跳转、弹窗消失、列表刷新等),节点 ref 已失效。
+
+**解决**:重新调 `GET /snapshot` 获取最新快照,用新 ref 重试操作。每次 UI 发生实质性变化后都应重新 snapshot。
+
+### `type` 返回 422「not an editable text field」
+
+目标节点不是可编辑输入框。可能原因:
+
+- `<element>` / `<ref>` 对应的节点是普通 text 或 button,不是 TextField。
+- 多输入框布局中坐标/ref 解析命中了错误节点。
+
+**解决**:确认 `/snapshot` 里目标节点的角色是 `textfield`(而非 `text` 或其他),用该节点对应的 ref 重试。
+
+### `goto` / `reset` 返回 501「navigation not configured」
+
+host app 在调用 `FlutterWright.start()` 时没有传 `navigatorKey` 或 `navigationAdapter`,导致 SDK 不注册导航端点。
+
+**解决**:按 integration-guide 的 §3 接入:Navigator 1.0 传 `navigatorKey: FlutterWright.navigatorKey` + 注入 `MaterialApp`;GoRouter/GetX 传对应 `CallbackNavigationAdapter`。只需交互(tap/type 等)不需要 goto 时,这个 501 是预期行为,无需处理。
+
+---
+
 ## 平台限制 — "Android 上没问题,iOS 上不行"
 
 v1 是 Android-only。原因:

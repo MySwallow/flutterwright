@@ -15,6 +15,23 @@
 4. **默认把 SDK 放 `dev_dependencies` + 用独立 debug 入口**(Step 1/2 推荐路径),让生产 `lib/` 零 SDK 引用。只有当人类明确要求"图省事/单入口"时才放 `dependencies`。
 5. **如果检测发现与本指引矛盾的既有代码**(例:已有 `navigatorKey` 用于别的用途),**停下**,把发现报告给人类后再继续。
 
+### 决策路径(先看这里)
+
+```
+你需要什么能力?
+│
+├── 只需要 snapshot / tap / type / scroll / longPress / waitFor
+│   └── 只调 FlutterWright.start()  ← 无需 navigatorKey,交互闭环开箱可用
+│
+└── 需要 goto / reset(程序化跳页)
+    ├── Navigator 1.0 命名路由
+    │   └── start() + 把 FlutterWright.navigatorKey 注入 MaterialApp
+    ├── GoRouter / 其他 URL 路由
+    │   └── start(navigationAdapter: CallbackNavigationAdapter(onNavigate: router.go ...))
+    └── GetX
+        └── start(navigationAdapter: CallbackNavigationAdapter(onNavigate: Get.toNamed ...))
+```
+
 ## 1. 前置检测(必须先全部跑完)
 
 跑下面每条命令,把结果记下来 — 后续 Step 会基于它分流。
@@ -81,20 +98,22 @@ dev_dependencies:
 // dev/main_dev.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
-import 'package:<your_app>/app.dart'; // 你的根 widget(需接受可注入 navigatorKey,见 Step 3)
+import 'package:<your_app>/app.dart'; // 你的根 widget
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // start() 无需任何参数即可解锁 snapshot/tap/type/scroll/longPress/waitFor
+  // 若还需要 goto/reset,额外传 navigatorKey 或 navigationAdapter(见 Step 3)
   await FlutterWright.start(
     routes: AppRouter.names, // 可选:喂 GET /routes,不影响 goto
   );
   runApp(FlutterWrightRoot(
-    child: MyApp(navigatorKey: FlutterWright.navigatorKey),
+    child: MyApp(navigatorKey: FlutterWright.navigatorKey), // navigatorKey 仅 goto/reset 路径需要
   ));
 }
 ```
 
-若根 widget 当前不接受注入,先把它改成接受可选 `navigatorKey`(Step 3 模板会给)。`FlutterWrightRoot` 包根让 `/screenshot` 可靠;Android 上 skill 默认走 adb screencap,可省。
+`FlutterWrightRoot` 包根让 `/screenshot` 可靠;Android 上 skill 默认走 adb screencap,可省。若根 widget 不接受注入且你只需要交互(不需要 goto),可以直接 `runApp(FlutterWrightRoot(child: const MyApp()))`,无需注入 key。
 
 ### 图省事:单入口(SDK 在 dependencies)
 
@@ -105,6 +124,8 @@ import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // start() 即解锁交互(snapshot/tap/type/scroll/longPress/waitFor)
+  // 若需要 goto/reset,在 runApp 中注入 FlutterWright.navigatorKey 并按 Step 3 接线
   await FlutterWright.start(
     routes: AppRouter.names, // 可选:喂 GET /routes,不影响 goto
   );
@@ -121,7 +142,9 @@ Future<void> main() async {
 1. `flutter analyze` 退出 0。
 2. `grep -rc FlutterWright.start dev/ lib/` 合计为 `1`(不能调用两次)。
 
-## 4. Step 3:把导航接进来(路由架构无关)
+## 4. Step 3:把导航接进来(仅 goto/reset 需要,可跳过)
+
+> **如果只需要 snapshot/tap/type/scroll/longPress/waitFor**,Step 2 完成后即可跳过本节直接到 Step 4 验证。`FlutterWright.start()` 无需 navigatorKey 就已开启全套交互。
 
 `/navigate`、`/reset` 经 `NavigationAdapter` 适配,**对路由 API 零假设**。基于 pre-check ④/⑤ 选模板:**命名路由用 A/C(默认 NavigatorKeyAdapter);GoRouter/GetX/auto_route 用 B/D(CallbackNavigationAdapter)。**
 
@@ -326,4 +349,4 @@ curl -s http://127.0.0.1:9123/routes
 
 ---
 
-**版本对照**:本指引基于 `flutter_wright_sdk 0.4.0`(可插拔 `NavigationAdapter` + dev_dependencies 范式)。SDK 升级后 API 不兼容时,Step 2-4 的代码片段会跟着改。
+**版本对照**:本指引基于 `flutter_wright_sdk 0.7.0`(snapshot-first 交互层 + navigatorKey 可选 + dev_dependencies 范式)。SDK 升级后 API 不兼容时,Step 2-4 的代码片段会跟着改。

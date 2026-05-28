@@ -8,7 +8,9 @@ FlutterWright 是一个 **Claude Code skill**,让 AI 像驱动浏览器一样驱
 
 它暴露一组 Playwright 风格的方法 —— `run` / `reload` / `screenshot` / `goto` / `setViewport` 等 —— **完整清单、签名与退出码见 [`SKILL.md`](skills/flutter-wright/SKILL.md)**。
 
-> 截图、热重载、视口锁定**开箱即用,不需要任何集成**(经 `adb` + skill 持有的 `flutter run` daemon 实现)。只有让 AI 程序化跳页(`goto`/`reset`)才需要给 app 加上可选的 `flutter_wright_sdk` —— 见下方「SDK 集成(可选)」。导航**架构无关**,Navigator 1.0 / GoRouter / GetX 都行,路由也无需预先注册。
+v0.7.0 新增 **snapshot-first 交互闭环**(对齐 Playwright MCP):先拿语义树快照(`snapshot`)、得到带 `[ref=sN]` 的节点,再用 ref 精确操作元素(`tap` / `type` / `scroll` / `longPress` / `waitFor`)。无需坐标、无需 UI 层级知识。
+
+> 截图、热重载、视口锁定**开箱即用,不需要任何集成**(经 `adb` + skill 持有的 `flutter run` daemon 实现)。**接入 SDK(`FlutterWright.start()`)即解锁全套语义交互**(snapshot/tap/type/scroll/longPress/waitFor),无需 navigatorKey。只有还要让 AI 程序化跳页(`goto`/`reset`)才需要额外传 navigatorKey 或 adapter —— 见下方「SDK 集成(可选)」。导航**架构无关**,Navigator 1.0 / GoRouter / GetX 都行。
 
 ## 怎么用
 
@@ -52,7 +54,11 @@ Skill flutter-wright "screenshot $CLAUDE_JOB_DIR/cur.png"
 
 **只要 AI 截图 + 热重载?跳过这节。** 用 skill 的 `run` 起 app 即可:reload 走它持有的 `flutter run` daemon、截图走 `adb screencap`,都不经 SDK。
 
-**要让 AI 程序化跳页(`goto`/`reset`)** 才需要把 SDK 加进 app —— 核心就是 `await FlutterWright.start(...)` 加上把 navigator 让给它。推荐放进 **`dev_dependencies`** + 一个独立的 `dev/main_dev.dart` 入口,让生产 `lib/` 对 SDK 零引用、release 零残留(`packages/example` 就是这么组织的)。
+**要让 AI 看语义树 + 操作元素(`snapshot`/`tap`/`type`/`scroll`/`longPress`/`waitFor`)**,把 SDK 加进 app,核心只需 `await FlutterWright.start()` — 无需传 navigatorKey。
+
+**要让 AI 程序化跳页(`goto`/`reset`)** 才需要在 `start()` 额外传 navigatorKey 或 navigationAdapter。
+
+推荐放进 **`dev_dependencies`** + 一个独立的 `dev/main_dev.dart` 入口,让生产 `lib/` 对 SDK 零引用、release 零残留(`packages/example` 就是这么组织的)。
 
 完整集成 recipe(dev_dependencies 范式、Navigator 1.0 / GoRouter / GetX 各自的接法、多 flavor):
 
@@ -75,8 +81,10 @@ Skill flutter-wright "screenshot $CLAUDE_JOB_DIR/cur.png"
 +-----------------------------+              +--------------------------------------+
 ```
 
-- **不经 SDK 的方法**(`run`/`reload`/`stop`/`screenshot`/`setViewport`):`run` 起一个 `flutter run --machine` daemon 并持有,`reload` 给它发 `app.restart` 热重载;截图走 `adb screencap`、视口走 `adb shell wm`。
-- **需要 SDK 的方法**(`goto`/`reset`/`health`):app 集成 SDK 后 debug 下在 `127.0.0.1:9123` 开 HTTP 服务,bash 脚本经 `adb forward` + `curl` 把命令发进去由 app 执行(上图就是这条路径)。release 构建里 SDK 是 no-op,不绑 socket、不暴露任何东西。
+- **不经 SDK 的方法**(`run`/`reload`/`stop`/`screenshot`/`setViewport`/`pressKey`/`back`/`logs`):`run` 起一个 `flutter run --machine` daemon 并持有,`reload` 给它发 `app.restart` 热重载;截图走 `adb screencap`、视口走 `adb shell wm`。
+- **需要 SDK 的方法** — 分两层:
+  - **交互层**(`snapshot`/`tap`/`type`/`scroll`/`longPress`/`waitFor`/`health`):只需 `FlutterWright.start()`,无需 navigatorKey。app 在 debug 下于 `127.0.0.1:9123` 开 HTTP 服务,bash 脚本经 `adb forward` + `curl` 把命令发进去。
+  - **导航层**(`goto`/`reset`):需要额外传 navigatorKey 或 navigationAdapter。release 构建里 SDK 是 no-op,不绑 socket、不暴露任何东西。
 
 ## 项目结构
 

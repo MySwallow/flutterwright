@@ -8,17 +8,18 @@
 
 集成是**按方法分摊**的,不必一次接全。先看你要用哪些能力:
 
-> `reload`/`screenshot` 不需要 SDK;下表只列**需要集成**的能力(`goto`/`reset` 及可发现路由)。
+> `reload`/`screenshot`(adb) 不需要 SDK;下表列出所有需要集成 SDK 的能力。
 
 | 你想用 | 需要做的 | 对应章节 |
 |---|---|---|
 | `reload` + adb 截图(导航靠人工) | **无需集成 SDK** —— 让 flutter-wright skill `run` 起你的 app | — |
+| `snapshot` / `tap` / `type` / `scroll` / `longPress` / `waitFor`(交互闭环) | `await FlutterWright.start();` 即可 —— **无需** navigatorKey | §1 §2 |
 | `goto` / `reset`(命名路由) | `await FlutterWright.start();` 并把 `FlutterWright.navigatorKey` 注入 `MaterialApp(navigatorKey:)` | §1 §2 §3 |
 | `goto`(GoRouter / GetX 等) | `await FlutterWright.start();` 并给 `start()` 传 `CallbackNavigationAdapter` | §1 §2 §5 |
 | `GET /routes` 让 AI 发现页面 | 传 `routes:`(路由名列表,**纯可选**,不影响 `goto`) | §4 |
 | 纯渲染树截图(不含状态栏) | 用 `FlutterWrightRoot` 包根 | §2 |
 
-> 最小集成(`goto`/`reset`)就是 `FlutterWright.start()` 一行。下面各节按这个顺序展开;只接你需要的。
+> **`FlutterWright.start()` 解锁全套交互(snapshot/tap/type/scroll/longPress/waitFor)**;只有要用 goto/reset 才需要额外传 navigatorKey 或 navigationAdapter。下面各节按这个顺序展开;只接你需要的。
 
 ## 1. 添加依赖(推荐放 `dev_dependencies`)
 
@@ -94,7 +95,9 @@ Future<void> main() async {
 }
 ```
 
-## 3. 把导航接进来(路由架构无关)
+## 3. 把导航接进来(仅 goto/reset 需要)
+
+> 只需 snapshot/tap/type/scroll/longPress/waitFor?这一节可以跳过。
 
 `/navigate` 和 `/reset` **不绑定任何具体路由栈** —— 经 `NavigationAdapter` 适配。`start()` 不传 `navigationAdapter` 时默认走 **Navigator 1.0 命名路由**(`NavigatorKeyAdapter`):把 `FlutterWright.navigatorKey` 注入到 `MaterialApp(navigatorKey:)` 即可(见第 2 节)。
 

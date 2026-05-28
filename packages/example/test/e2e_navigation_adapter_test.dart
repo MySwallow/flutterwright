@@ -79,12 +79,24 @@ class _DeclarativeApp extends StatelessWidget {
 }
 
 void main() {
+  // start() 持有的 SemanticsHandle 须在测试体内释放(flutter_test invariant
+  // 检查早于 tearDown)。所有用例经此包装:跑完体内即 stop()。
+  Future<void> withApp(
+      WidgetTester tester, Future<void> Function() body) async {
+    try {
+      await body();
+    } finally {
+      await tester.runAsync(() => FlutterWright.stop());
+    }
+  }
+
   tearDown(() async {
     await FlutterWright.stop();
   });
 
   testWidgets('CallbackNavigationAdapter 驱动非 Navigator-1.0 路由(真实 curl 端到端)',
       (WidgetTester tester) async {
+    await withApp(tester, () async {
     final route = ValueNotifier<String>('/');
     String? lastReset;
 
@@ -148,5 +160,6 @@ void main() {
     expect(reset.code, 200);
     expect(lastReset, '/', reason: '/reset 应触发 adapter.onReset');
     expect(find.text('HOME PAGE'), findsOneWidget);
+    });
   });
 }

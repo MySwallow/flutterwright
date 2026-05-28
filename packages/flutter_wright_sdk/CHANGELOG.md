@@ -1,5 +1,35 @@
 # 更新日志
 
+## 0.7.0 - 2026-05-27
+
+### 新增
+- **snapshot-first 交互层**(对齐 Playwright MCP):
+  - `GET /snapshot`(带 `[ref=sN]` 的 YAML 语义树,`SemanticsSnapshot.serialize`)。
+  - `POST /tap` `/long_press` `/scroll` `/type`(经 `SemanticsOwner.performAction` /
+    `EditableTextState.userUpdateTextEditingValue`,请求体 `element`+`ref`,
+    成功响应**自动回吐** `snapshot`)。
+  - `GET /wait_for?text=|ref=|gone= [&timeout=ms]`(轮询条件,408 超时)。
+  - `start()` 持有 `SemanticsBinding.instance.ensureSemantics()` 句柄,
+    强制常开语义树(无障碍服务未开时也能读到节点);`stop()` 释放。
+- skill 侧脚本:`snapshot.sh` / `tap.sh` / `long_press.sh` / `type.sh`(含 `submit=`
+  发 ENTER) / `scroll.sh` / `wait_for.sh`(SDK);`press_key.sh` / `back.sh`
+  (adb keyevent,免 SDK);`logs.sh`(读 daemon `app.log`,免 SDK)。
+
+### 变更
+- **navigatorKey 降级为可选**:`FlutterWright.start()` 仅当传了 `navigatorKey` 或
+  `navigationAdapter` 才注册 `/navigate` `/reset` `/routes`;否则这三个端点回 501
+  「navigation not configured」。交互闭环只需 `start()` 即可。
+- `/navigate` `/reset` 的成功响应也附 `snapshot` 字段(与 /tap 等动作一致)。
+- 示例 `dev/main_dev.dart` 显式传 `navigatorKey: FlutterWright.navigatorKey`。
+
+### 测试 / 兼容
+- 单元测试:`semantics_snapshot_test`、`semantics_action_test`、
+  `start_navigation_test`(SDK)。
+- E2E:`e2e_interaction_test`(snapshot/type→tap/wait_for/navigate 回吐)。既有
+  `e2e_control_plane_test` 与各 example 测试改造 `withApp` 在测试体内 stop()
+  以释放 SDK 持有的 `SemanticsHandle`(flutter_test 的 invariant 检查早于 tearDown)。
+- API 全部兼容 Flutter 3.24(已下限)~3.44。
+
 ## 0.6.0 - 2026-05-25
 
 > **破坏性变更。**
