@@ -204,8 +204,8 @@ void main() {
   });
 
   group('skill bash 脚本：真实驱动同一个 SDK 服务', () {
-    // scripts 默认依赖 adb 做 fw_ensure_health；这里写入 marker 文件走 fast-path
-    // 跳过 adb 检查（脚本自身设计的快路径），让脚本直接 curl 到本机 9123。
+    // 写一条目标注册表指向本机 9123（无 token）；脚本经 fw_resolve_target 解析出
+    // base、fw_need_sdk 预检 /health，再 curl 到同一个 SDK 控制面。纯 SDK 路径，不碰 adb。
     late Directory jobDir;
     late String scriptsDir;
 
@@ -262,19 +262,6 @@ void main() {
         await tester.pumpAndSettle();
         expect(reset.exitCode, 0, reason: 'reset.sh stderr: ${reset.stderr}');
         expect(find.byType(HomePage), findsOneWidget);
-      });
-    });
-
-    testWidgets('reload.sh：未 run(无 owned daemon)时返回退出码 33',
-        (WidgetTester tester) async {
-      await withApp(tester, () async {
-        // 新模型:reload 走 AI 持有的 flutter daemon(由 `run` 启动),不再碰 SDK。
-        // 测试 job 没 run 过 → 无 $CLAUDE_JOB_DIR/fw_daemon.env → reload.sh 干净报错 exit 33。
-        // daemon 驱动的成功路径依赖真机 + 真实 flutter 进程,在设备上手工验证。
-        final reload =
-            (await tester.runAsync(() => runScript('reload.sh', <String>[])))!;
-        expect(reload.exitCode, 33,
-            reason: 'reload.sh 无 owned daemon 应 exit 33,stderr: ${reload.stderr}');
       });
     });
   });

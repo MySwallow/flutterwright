@@ -9,7 +9,10 @@ import 'package:flutter_wright_sdk/flutter_wright_sdk.dart';
 import 'package:flutter_wright_example/app.dart';
 import 'package:flutter_wright_example/router/app_router.dart';
 
-const String _base = 'http://127.0.0.1:9123';
+// 独立端口 9127，避免与 e2e_control_plane_test.dart(9123)在 `flutter test`
+// 默认并行跑测试文件时争抢同一端口（HttpServer.bind → Address already in use）。
+const int _port = 9127;
+const String _base = 'http://127.0.0.1:$_port';
 
 Future<({int code, String body})> _curlGet(String path) async {
   final Directory tmp = await Directory.systemTemp.createTemp('fw_curl_');
@@ -57,6 +60,7 @@ String? refFor(String yaml, String label) {
 Future<void> bootLogin(WidgetTester tester) async {
   await tester.runAsync(() => FlutterWright.start(
         enabled: true,
+        config: const FlutterWrightConfig(port: _port),
         navigatorKey: FlutterWright.navigatorKey,
         routes: AppRouter.names,
       ));
@@ -163,7 +167,7 @@ void main() {
       // 写一条目标注册表,指向本机 9123(无 token);脚本经 fw_resolve_target 解析。
       jobDir = await Directory.systemTemp.createTemp('fw_job_');
       File('${jobDir.path}/targets')
-          .writeAsStringSync('local|http://127.0.0.1:9123||com.test.app\n');
+          .writeAsStringSync('local|http://127.0.0.1:$_port||com.test.app\n');
       scriptsDir = Directory(
               '${Directory.current.path}/../../skills/flutter-wright/scripts')
           .absolute
@@ -206,6 +210,66 @@ void main() {
         await tester.pumpAndSettle();
         expect(tapped.exitCode, 0, reason: 'tap.sh stderr: ${tapped.stderr}');
       });
+    });
+
+    // 错误路径契约:验证 skill 脚本把【真实 SDK 的错误响应】正确映射成各自退出码。
+    // 这是「联动符合预期」的反面验证 —— happy-path 之外,出错时的码也必须对得上。
+    testWidgets('错误路径:tap.sh 用过期/未知 ref → SDK 404 → 退出码 51',
+        (WidgetTester tester) async {
+      await withLoginApp(tester, () async {
+        // 先取一次 snapshot 建立快照上下文,再用一个从未出现过的 ref(模拟过期)。
+        await tester.runAsync(() => runScript('snapshot.sh', <String>[]));
+        final ProcessResult tapped = (await tester
+            .runAsync(() => runScript('tap.sh', <String>['登录', 'ref=s9999'])))!;
+        expect(tapped.exitCode, 51,
+            reason: 'tap 未知 ref 应映射 SDK 404 → 51,stderr: ${tapped.stderr}');
+      });
+    });
+
+    testWidgets('错误路径:type.sh 写到非输入框(按钮 ref)→ SDK 422 → 退出码 54',
+        (WidgetTester tester) async {
+      await withLoginApp(tester, () async {
+        final ProcessResult snap = (await tester
+            .runAsync(() => runScript('snapshot.sh', <String>[])))!;
+        final String? loginRef = refFor(snap.stdout.toString(), '登录');
+        expect(loginRef, isNotNull, reason: snap.stdout.toString());
+        final ProcessResult typed = (await tester.runAsync(() => runScript(
+            'type.sh', <String>['登录', 'ref=$loginRef', 'text=x'])))!;
+        expect(typed.exitCode, 54,
+            reason: 'type 到按钮应映射 SDK 422 → 54,stderr: ${typed.stderr}');
+      });
+    });
+
+    testWidgets('错误路径:tap.sh 缺 ref → 退出码 50(脚本侧参数校验)',
+        (WidgetTester tester) async {
+      await withLoginApp(tester, () async {
+        final ProcessResult tapped = (await tester
+            .runAsync(() => runScript('tap.sh', <String>['登录'])))!;
+        expect(tapped.exitCode, 50,
+            reason: 'tap 缺 ref 应退 50,stderr: ${tapped.stderr}');
+      });
+    });
+
+    testWidgets('错误路径:SDK 不可达 → fw_need_sdk 预检 → 退出码 12',
+        (WidgetTester tester) async {
+      // 指向一个确定关闭的端口;snapshot.sh 的 /health 预检失败即退 12,不依赖 app。
+      final Directory deadDir =
+          await Directory.systemTemp.createTemp('fw_dead_');
+      File('${deadDir.path}/targets')
+          .writeAsStringSync('dead|http://127.0.0.1:59999||com.test.app\n');
+      try {
+        final ProcessResult snap = (await tester.runAsync(() => Process.run(
+            'bash',
+            <String>['$scriptsDir/snapshot.sh'],
+            environment: <String, String>{
+              'FW_TARGETS': '${deadDir.path}/targets'
+            },
+            includeParentEnvironment: true)))!;
+        expect(snap.exitCode, 12,
+            reason: 'SDK 不可达应退 12,stderr: ${snap.stderr}');
+      } finally {
+        await deadDir.delete(recursive: true);
+      }
     });
   });
 }
