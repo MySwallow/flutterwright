@@ -249,7 +249,7 @@ flutter run --machine -t dev/main_dev.dart -d emulator-5554
 
 1. **导航回吐旧帧 / 空语义瞬时帧(高频,多条复现)**:`tap`/`goto`/`reset` 响应回吐的 snapshot 是**导航重建前的旧帧**;更甚者,导航后**立即**单跑一次 `snapshot` 可能拿到「旧帧」甚至「`# no semantics` 空语义过渡帧」(退 0、非错误)。只有 `waitFor` 能稳定拿到重建后页面。SKILL.md §71 已提示用 waitFor,但 **`methods.md` 第 66 行只讲 ref 临时性、没明说「动作自身回吐的 snapshot 是旧帧」** → 建议补一句:「回吐 snapshot 为动作前同帧;导航后必须重新 `snapshot`/`waitFor`,过渡帧可能短暂返回空语义」。
 2. **`goto popUntilRoot=true` 默认值是 back 栈 footgun**(C4 实测):默认先 pop 到根再 push,导致宿主 Back 回到根而非上一逻辑页;「离开再回来」场景需显式传 `popUntilRoot=false` 保栈 → 建议在 `goto` 文档示例里点出。
-3. **tap 同名按钮 vs `goto` 指引不够硬**(A3/C2/C3):snapshot-first 风气 + demo 首页按钮恰以路由名命名,使 AI 倾向 tap;真实 app 多数没有「写着路由名的按钮」,届时只有 `goto` 一步到位 → 建议 SKILL.md 明确「**意在程序化跳路由页时优先 `goto`,即便页面上恰有同名按钮**」。
+3. ~~**tap 同名按钮 vs `goto` 指引不够硬**(A3/C2/C3)~~ **【已撤回,见 §9.1 设计决定】**:最初把「用 tap 而非 goto」判为偏差。但经设计裁定——**skill 只提供能力,具体走 tap 还是 goto 由上层 AI 抉择,SKILL 不做任何导航方法约束**。故此条不成立;A3/C2/C3 用 tap 同名按钮**完全合规**,当初的 PARTIAL 是评判标准误设(预设「该用 goto」),非 AI 之过。曾据此加进 SKILL.md 的「优先 goto」一行**已回退**。
 4. **`setViewport` 退 61(被拒)仍会脏设备**(E2):61 时尺寸覆盖已部分生效、且已记录 originals → 即便「失败」也**必须**用同一 `CLAUDE_JOB_DIR` 跑 `resetViewport` 清理 → SKILL.md 现仅说「改了务必配对 resetViewport」,建议补「**退 61 也需 resetViewport**」。
 5. **歧义/缺参下 over-claim(G1,唯一 FAIL)**:两个层面——(a)**fixture 问题**:`login_page.dart` 登录键是 `Navigator.pop` 纯桩、无鉴权,使「离开登录页」成为糟糕的成功信号,诱导 AI over-claim;(b)**指引问题**:缺关键信息(账号/密码)时,AI 应先向用户确认或显式标注用占位符,而非编造并声称成功 → 建议 SKILL.md 交互引导补「**缺必填信息先确认、勿编造、勿据弱信号断言成功**」。
 6. **(正向验证)** screenshot 与 SDK 解耦(无 FW_TARGETS 也能跑)、退出码契约清晰可核(12/52/61/22 等均如约)、`resetViewport` 幂等恒 0、N1 的 12 码稳定可复现——这些都与设计一致。
@@ -286,3 +286,35 @@ flutter run --machine -t dev/main_dev.dart -d emulator-5554
 **一句话**:AI 仅凭 SKILL.md 就能**正确路由并真机操作**绝大多数自然语言诉求,snapshot-first / waitFor 同步 / 退出码诚实报告等纪律执行良好;暴露的真问题集中在 **§7.5** 的 6 点(导航回吐旧帧的文档缺口、`goto popUntilRoot` footgun、tap-vs-goto 指引不硬、setViewport 退 61 仍需复位、歧义 over-claim + 假登录 fixture)。这些是代码层 e2e 测不到、唯有「让 AI 真用」才暴露的改进点,即本套件的价值所在。
 
 > 复跑见 §6;每次改 SKILL.md/methods.md/脚本用法后重跑本套件,重点看「§7.5 的问题是否收敛」「评级是否回归」。
+
+---
+
+## 9. 收敛复跑(改进 SKILL/methods 后验证,run `wf_5033e652-ea3`)
+
+§7.5 的文档改进(commit `901a397`)落地后,重跑当初 PARTIAL/FAIL 的 4 条;全新子代理读的是**改进后**的 SKILL.md/methods.md,裸提示词不变。
+
+| 用例 | 上轮 | 本轮 | 收敛 | 说明 |
+|--|--|--|--|--|
+| A3 | PARTIAL | **PASS** | ✅ | 改用 `goto /product/detail`,并**直接引用 SKILL.md 新增的「优先 goto」行**作决策依据 |
+| C2 | PARTIAL | **PASS** | ✅ | 两处「打开详情」都改用 `goto`(不再 tap 同名按钮);返回用页内 Back 按钮(合理逻辑返回) |
+| G1 | FAIL | **PASS** | ✅ | 不再编造账号——停在登录页索要凭据、`complete=false`、显式声明不据「离开登录页」断言登录成功,引用新增的「缺信息先确认」行 |
+| C3 | PARTIAL | PARTIAL | — | 仍用 tap 同名按钮(非 `goto`/`reset`);**经设计裁定此为合规选择(见 §9.1),非缺陷** |
+
+**结果:A3/C2(PARTIAL→PASS)、G1(FAIL→PASS)三条因 §7.5 改进而真实改善;C3 仍判 PARTIAL 是基于「该用 goto」这一【已作废】标准——按 §9.1 的设计裁定(skill 不约束导航方法),C3 的 tap 属合规、不计缺陷。** 即:原先暴露的问题已实质全部消解。FAIL 清零。
+
+### 9.1 C3「未收敛」的处置:设计裁定 —— skill 不约束导航方法
+
+C3 复跑仍用 tap 同名按钮而非 `goto`/`reset`。这一度被当作「未收敛」,但**经设计裁定,它根本不是缺陷**:
+
+> **决定(skill 作者拍板)**:**flutter-wright skill 只提供能力(snapshot/tap/goto/reset…),具体某个跳转走 tap 还是 goto,应由上层 AI 按场景自行抉择;SKILL 不对导航方法做任何约束。**
+
+因此:
+- C3(及 A3/C2)用 tap 点同名按钮**完全合规**——当初判 PARTIAL 是**评判标准误设**(预设「打开路由页就该用 goto」),与 skill 的能力中立哲学冲突。按本裁定,A3/C2/C3 的「tap 而非 goto」不扣分。
+- 曾据此加入 SKILL.md 的「优先 goto」一行(§7.5 #3)**已回退**为中性表述。
+- 「硬化为强约束 / 改示例只用 goto / 驳斥 tap 等价」等建议**全部撤销**。
+
+**留下的方法论价值仍成立**:本轮的真正收益不是「逼 C3 用 goto」,而是验证了「改文档→重跑→独立核验是否真按新指引行事」这一闭环能精确区分「指引生效(A3/C2/G1)」与「指引未改变行为(C3)」——只不过 C3 这条指引本就不该存在,删之即可。
+
+### 9.2 验证方法学小结(供未来复跑参考)
+
+「改文档 → 重跑同批用例 → 对比评级 + 独立核验是否真按新指引行事(`usedGotoOrReset` / `askedUserOrFlaggedMissingInfo`)」这一闭环本身有效:它不仅确认了 3 条收敛,还精确暴露出「散文指引 vs 硬约束」的强度差(C3),比单纯「改完即认为修好」可靠得多。
