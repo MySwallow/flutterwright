@@ -7,8 +7,8 @@
 set -uo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-SKILL="$DIR/../SKILL.md"
-SCRIPTS="$DIR/../scripts"
+SKILL="$DIR/../../skills/flutter-wright/SKILL.md"
+SCRIPTS="$DIR/../../skills/flutter-wright/scripts"
 fail=0
 
 # --- Part A: structural invariant over the 方法 table ---

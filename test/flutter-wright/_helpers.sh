@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # _helpers.sh — shared harness for flutter-wright script tests. Source, don't execute.
 FW_TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FW_SCRIPTS_DIR="$(cd "$FW_TEST_DIR/../scripts" && pwd)"
+FW_SCRIPTS_DIR="$(cd "$FW_TEST_DIR/../../skills/flutter-wright/scripts" && pwd)"
 export FW_SCRIPTS_DIR
 
 # fw_test_setup_target [token] — write a one-entry registry pointing at the running mock

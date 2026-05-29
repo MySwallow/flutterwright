@@ -5,7 +5,7 @@
 # curl-header array. Exits 14 (no usable registry) / 15 (ambiguous or unknown target).
 set -uo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$DIR/../scripts/_lib.sh"
+source "$DIR/../../skills/flutter-wright/scripts/_lib.sh"
 
 reg="$(mktemp -t fw-reg.XXXXXX)"
 trap 'rm -f "$reg"' EXIT
@@ -43,7 +43,7 @@ FW_TARGETS="$reg" fw_resolve_target target=b
 # --- set -e compatibility: empty token must NOT abort the caller (callers run set -euo
 #     pipefail; an empty-token registry is the common no-auth path). Regression guard. ---
 printf 'shop|http://127.0.0.1:9123||com.acme.shop\n' > "$reg"
-FW_TARGETS="$reg" FW_LIB="$DIR/../scripts/_lib.sh" bash -c '
+FW_TARGETS="$reg" FW_LIB="$DIR/../../skills/flutter-wright/scripts/_lib.sh" bash -c '
   set -euo pipefail
   source "$FW_LIB"
   fw_resolve_target
