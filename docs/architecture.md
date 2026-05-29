@@ -2,7 +2,7 @@
 
 ## 整体分层
 
-flutter-wright 是 monorepo,既是 Claude Code skill,也拥有 `flutter_wright_sdk` SDK + demo + 技术文档。在更大的"Flutter UI 自动化"分层里它是 **Layer 2b**(设备/Flutter app 驱动)。
+flutter-wright 是 monorepo,既是 Claude Code skill,也带 `flutter_wright_sdk` SDK + demo + 技术文档。在更大的"Flutter UI 自动化"分层里它处于 **Layer 2b**(设备/Flutter app 驱动)。
 
 ```
 +--------------------------------------+
@@ -19,7 +19,7 @@ flutter-wright 是 monorepo,既是 Claude Code skill,也拥有 `flutter_wright_s
                   v
 +--------------------------------------+
 |  Layer 2b: flutter-wright (本仓库)    |
-|  - 9 Playwright-style methods        |
+|  - Playwright 风格交互方法 + 导航/截图/视口/按键/多目标(共 16 个) |
 |  - skills/flutter-wright/SKILL.md     |
 +--------------------------------------+
                   |  bash scripts/*.sh
@@ -53,19 +53,20 @@ flutter-wright 是 monorepo,既是 Claude Code skill,也拥有 `flutter_wright_s
 - **`FlutterWrightRoot`** — 可选 Widget 包装,让 `/screenshot` 可靠工作(提供 `RepaintBoundary`)。
 ### Skill (`skills/flutter-wright`)
 
-- **`SKILL.md`** — 唯一对外接口,Playwright-style 9 methods 定义 + dispatch convention。
-- **`scripts/`** — 9 个 bash 脚本(`run.sh / stop.sh / health.sh / goto.sh / screenshot.sh / reload.sh / set_viewport.sh / reset_viewport.sh / reset.sh`),封装 flutter daemon / adb / curl 细节。reload 经 `run` 持有的 `flutter run --machine` daemon(`app.restart`),不经 SDK。
+- **`SKILL.md`** — 唯一对外接口,Playwright 风格交互方法(snapshot/tap/type/scroll/longPress/waitFor 等)+ 导航/截图/视口/按键/多目标方法(共 16 个)定义 + dispatch convention。
+- **`scripts/`** — 一组 bash 脚本(`_lib.sh / back.sh / goto.sh / health.sh / logs.sh / long_press.sh / press_key.sh / reset.sh / reset_viewport.sh / screenshot.sh / scroll.sh / set_viewport.sh / snapshot.sh / tap.sh / targets.sh / type.sh / wait_for.sh`,共 17 个),封装 adb / curl / 目标注册表细节。skill 只驱动**已经运行**的 app,不托管进程:起 app 由用户自己 `flutter run`,热重载由用户在自己的 `flutter run` 控制台按 `r`(skill 不再持有 daemon)。
 
 ## 双仓库职责
 
 | 仓库 | 内容 | 职责层 |
 |---|---|---|
-| `flutter-wright/`(本仓库) | SKILL + 9 scripts + SDK + example + docs | Layer 2b 设备/Flutter app 驱动 |
+| `flutter-wright/`(本仓库) | SKILL + scripts(交互/导航/截图/视口/多目标封装)+ SDK + example + docs | Layer 2b 设备/Flutter app 驱动 |
 | `flutter-visual-loop/`(瘦身后) | SKILL + 编排逻辑 | Layer 2a UI 还原循环编排 |
 
 ## 安全约束
 
-- 当 `kDebugMode == false` 时,SDK 拒绝启动(默认 config 守门)。
+- 启用由宿主 `enabled` 标志显式控制(`start({bool enabled = false})`,默认 `false` → 立即返回、不绑定控制面,fail-safe);SDK 不再自动识别构建模式(常用 `enabled: kDebugMode` 在 release 关闭,提测包用 `enabled: AppEnv.isTestBuild`)。
+- 可选 `token` 鉴权:`start(token:)` 非空时除 `GET /health` 外所有端点校验 `X-FW-Token`,缺失/错误返 **401**(常量时间比对);为空则仅靠 loopback 保护。
 - Server 仅绑 `127.0.0.1`,不暴露到 LAN。
 - `adb wm size` / `wm density` 覆写由 skill 记录到 `$CLAUDE_JOB_DIR/fw_original.env`,任务结束或任何失败路径必须调 `Skill flutter-wright "resetViewport"` 还原。
 - 每个 endpoint 在 debug console 输出一行汇总;超 `maxBodyBytes`(默认 1 MiB)的请求返 413。
@@ -74,7 +75,7 @@ flutter-wright 是 monorepo,既是 Claude Code skill,也拥有 `flutter_wright_s
 
 | 级别 | 需要什么 | 解锁能力 |
 |---|---|---|
-| **零集成** | 只需 `adb` + skill `run` | `run` / `reload` / `stop` / `screenshot`(adb screencap) / `setViewport` / `resetViewport` |
+| **零集成** | 只需 `adb`(起停 app 由用户自行 `flutter run`) | `screenshot`(adb screencap) / `setViewport` / `resetViewport` |
 | **`FlutterWright.start()`** | SDK 加进 app,`start()` 无需任何 navigatorKey | 全套交互:snapshot / tap / type / scroll / longPress / waitFor;`health` 也走这条 |
 | **+ `navigatorKey` 或 `navigationAdapter`** | 在 `start()` 传入 | 导航:goto(`/navigate`) / reset(`/reset`) / `GET /routes` 路由发现 |
 | **+ `FlutterWrightRoot`** | 用 Widget 包根 | `/screenshot` 纯渲染树截图(不含 OS chrome) |

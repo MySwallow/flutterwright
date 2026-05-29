@@ -1,10 +1,10 @@
 # 故障排查
 
-按 "现象在哪一层暴露" 分组。涉及方法:`health` / `targets` / `snapshot` / `tap` / `type` / `scroll` / `goto` / `reset` / `screenshot` / `setViewport` / `resetViewport` / `logs`。(本 skill 不再托管 flutter 进程——`run`/`reload`/`stop` 已移除,见「起停 app / 热重载」段。)
+按 "现象在哪一层暴露" 分组。涉及方法:`health` / `targets` / `snapshot` / `tap` / `type` / `scroll` / `goto` / `reset` / `screenshot` / `setViewport` / `resetViewport` / `logs`。(本 skill 不再托管 flutter 进程,`run`/`reload`/`stop` 已移除,见「起停 app / 热重载」段。)
 
 ## `health` 失败
 
-> **退出码 12-15 来自需要 SDK 的方法(`snapshot`/`tap`/`type`/`scroll`/`longPress`/`waitFor`/`goto`/`reset`/`health`)** —— 它们要 `curl`(13)+ 目标注册表可解析(14 注册表缺失或空 / 15 目标歧义或未找到)+ `GET <base>/health` 通(12 不可达)。`screenshot`/`setViewport`/`resetViewport`/`pressKey`/`back`/`logs` 只查 `adb` + 设备(10/11)。可达性不再每次自动建,见 `targets forward`。
+> **退出码 12-15 来自需要 SDK 的方法(`snapshot`/`tap`/`type`/`scroll`/`longPress`/`waitFor`/`goto`/`reset`/`health`)**。它们要 `curl`(13)+ 目标注册表可解析(14 注册表缺失或空 / 15 目标歧义或未找到)+ `GET <base>/health` 通(12 不可达)。`screenshot`/`setViewport`/`resetViewport`/`pressKey`/`back`/`logs` 只查 `adb` + 设备(10/11)。可达性不再每次自动建,见 `targets forward`。
 
 ### exit 10:adb 未安装
 
@@ -51,7 +51,7 @@ emulator -avd <name> -no-snapshot-load &
 
 App 在启动。两选一:
 - 等 ~500ms 重试。
-- `FlutterWright.start(autoStart: false)` + 第一帧后调 `FlutterWright.bind()`。
+- `FlutterWright.start(enabled: true, config: FlutterWrightConfig(autoStart: false))` + 第一帧后调 `FlutterWright.bind()`。注意 `enabled: true` 必传:否则 `start()` 直接 no-op 且后续 `bind()` 会抛 `StateError`;`autoStart` 是 `FlutterWrightConfig` 的字段,不是 `start()` 的命名参数。
 
 ### exit 42 (HTTP 500): push failed
 
@@ -90,11 +90,11 @@ adb shell wm density reset
 
 ## 起停 app / 热重载(本 skill 不再托管)
 
-`run` / `reload` / `stop` 已移除——本 skill 只驱动一个**已在运行**的 app,不托管 flutter 进程。对应操作改为:
+`run` / `reload` / `stop` 已移除。本 skill 只驱动一个**已在运行**的 app,不托管 flutter 进程。对应操作改为:
 
-- **起 app**:你自己 `flutter run`(集成 SDK 时跑 dev 入口,如 `flutter run -t dev/main_dev.dart`)。找不到 flutter 就把它加进 PATH——本 skill 不再代起进程,故无 `FLUTTER_BIN`。
+- **起 app**:你自己 `flutter run`(集成 SDK 时跑 dev 入口,如 `flutter run -t dev/main_dev.dart`)。找不到 flutter 就把它加进 PATH;本 skill 不再代起进程,故无 `FLUTTER_BIN`。
 - **热重载**:在你那个 `flutter run` 控制台按 `r`(需 hot restart 按 `R`)。
-- **看日志**:`Skill flutter-wright "logs [since=<n>] [grep=<pat>]"` —— `adb logcat`,不依赖进程托管;注册表有 `package` 时按 pid 精确过滤,否则 `-s flutter`(见 `logs` 退出码 92 参数错 / 93 指定 package 未运行)。
+- **看日志**:`Skill flutter-wright "logs [since=<n>] [grep=<pat>]"` 底层是 `adb logcat`,不依赖进程托管;注册表有 `package` 时按 pid 精确过滤,否则 `-s flutter`(见 `logs` 退出码 92 参数错 / 93 指定 package 未运行)。
 - **建可达性**:`Skill flutter-wright "targets forward target=<name>"` 跑一次 `adb forward`(注册 target 时一次性建,不再每次自动)。
 
 ## `setViewport` 失败 / 任务结束后设备状态奇怪
@@ -121,12 +121,12 @@ App 卡在奇怪路由:`Skill flutter-wright "reset"` 或 `adb shell am force-st
 `GET /snapshot` 返回的 YAML 只有注释行,没有任何节点。原因与排查:
 
 - **没调 `FlutterWright.start()`**:SDK 的 `start()` 持有常开语义句柄(`ensureSemantics`)。若未调用,语义树为空。确认 `dev/main_dev.dart`(或对应入口)里有 `await FlutterWright.start(...)` 且在 `runApp` 之前。
-- **`start()` 未启用**:`enabled` 默认 `false`,`start()` 直接 no-op、不开语义树。确认传了 `enabled: true`(或 `enabled: kDebugMode` 而当前是 debug 构建)——SDK 不再自动感知构建模式,启用与否由调用方传的 `enabled` 决定。
+- **`start()` 未启用**:`enabled` 默认 `false`,`start()` 直接 no-op、不开语义树。确认传了 `enabled: true`(或 `enabled: kDebugMode` 而当前是 debug 构建)。SDK 不再自动感知构建模式,启用与否由调用方传的 `enabled` 决定。
 - **验证**:`curl http://localhost:9123/snapshot` 应返回包含节点的 YAML;`GET /health` 应回 `{"ok":true}`。
 
 ### `tap` / `type` / `scroll` / `long_press` 返回 404「ref not in latest snapshot」
 
-ref 已过期 — 自上次 snapshot 后,UI 发生了变化(页面跳转、弹窗消失、列表刷新等),节点 ref 已失效。
+ref 已过期:自上次 snapshot 后,UI 发生了变化(页面跳转、弹窗消失、列表刷新等),节点 ref 已失效。
 
 **解决**:重新调 `GET /snapshot` 获取最新快照,用新 ref 重试操作。每次 UI 发生实质性变化后都应重新 snapshot。
 
@@ -154,7 +154,7 @@ v1 是 Android-only。原因:
 - iOS Simulator 截图能用(`xcrun simctl io booted screenshot`),但脚本全用 `adb` 还没分流。
 - iOS deep-link / port forward 没有 `adb forward` 直接等价物。
 
-v2 计划支持 iOS — 见 spec §10.2。
+v2 计划支持 iOS,见 spec §10.2。
 
 ---
 

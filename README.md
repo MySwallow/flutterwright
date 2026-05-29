@@ -4,17 +4,17 @@
 
 ## 是什么
 
-FlutterWright 是一个 **Claude Code skill**,让 AI 像驱动浏览器一样驱动真机 / 模拟器上**已运行**的 Flutter app —— 拿语义树快照看页面、按 ref 精确点按 / 输入 / 滚动、截图看效果、跳到任意页面,形成 **「看 → 操作 → 再看」** 的自动闭环。(起 app / 热重载由你自己 `flutter run` 完成 —— 本 skill 只驱动,不托管进程。)
+FlutterWright 是一个 **Claude Code skill**,让 AI 像驱动浏览器一样驱动真机 / 模拟器上**已运行**的 Flutter app:拿语义树快照看页面、按 ref 精确点按 / 输入 / 滚动、截图看效果、跳到任意页面,形成 **「看 → 操作 → 再看」** 的自动闭环。(起 app / 热重载由你自己 `flutter run` 完成,本 skill 只驱动,不托管进程。)
 
-它暴露一组 Playwright 风格的方法 —— `snapshot` / `tap` / `type` / `goto` / `screenshot` / `setViewport` 等 —— **完整清单(16 个方法)、签名与退出码见 [`SKILL.md`](skills/flutter-wright/SKILL.md)**。
+它暴露一组 Playwright 风格的方法(`snapshot` / `tap` / `type` / `goto` / `screenshot` / `setViewport` 等)。**完整清单(16 个方法)、签名与退出码见 [`SKILL.md`](skills/flutter-wright/SKILL.md)**。
 
-v0.7.0 新增 **snapshot-first 交互闭环**(对齐 Playwright MCP):先拿语义树快照(`snapshot`)、得到带 `[ref=sN]` 的节点,再用 ref 精确操作元素(`tap` / `type` / `scroll` / `longPress` / `waitFor`)。无需坐标、无需 UI 层级知识。
+当前版本 **v0.8.0**。**snapshot-first 交互闭环**(对齐 Playwright MCP)自 v0.7.0 起提供:先拿语义树快照(`snapshot`)、得到带 `[ref=sN]` 的节点,再用 ref 精确操作元素(`tap` / `type` / `scroll` / `longPress` / `waitFor`)。无需坐标、无需 UI 层级知识。v0.8.0 起,启用改为宿主显式控制(`enabled` 默认 `false` / fail-safe),并新增可选 `token` 鉴权。
 
-> 截图、视口锁定**经 `adb` 开箱即用,不需要任何集成**(驱动一个你已 `flutter run` 起来的 app)。**接入 SDK(`FlutterWright.start(enabled: kDebugMode)`)即解锁全套语义交互**(snapshot/tap/type/scroll/longPress/waitFor),无需 navigatorKey。只有还要让 AI 程序化跳页(`goto`/`reset`)才需要额外传 navigatorKey 或 adapter —— 见下方「SDK 集成(可选)」。导航**架构无关**,Navigator 1.0 / GoRouter / GetX 都行。
+> 截图、视口锁定**经 `adb` 开箱即用,不需要任何集成**(驱动一个你已 `flutter run` 起来的 app)。**接入 SDK(`FlutterWright.start(enabled: kDebugMode)`)即解锁全套语义交互**(snapshot/tap/type/scroll/longPress/waitFor),无需 navigatorKey。只有还要让 AI 程序化跳页(`goto`/`reset`)才需要额外传 navigatorKey 或 adapter,见下方「SDK 集成(可选)」。导航**架构无关**,Navigator 1.0 / GoRouter / GetX 都行。
 
 ## 怎么用
 
-你不用自己敲命令 —— **在 Claude Code 会话里用大白话告诉 Claude 想干嘛,它替你调 skill。**
+你不用自己敲命令。**在 Claude Code 会话里用大白话告诉 Claude 想干嘛,它替你调 skill。**
 
 > **一次性准备**:Flutter 3.24+、`adb` 在 PATH、Android 真机(开 USB 调试)或模拟器;`git clone` 本仓库后给示例 app 补 Android 脚手架(`cd packages/example && flutter create . --platforms=android && flutter pub get`)。skill 在仓库的 `skills/flutter-wright/`。
 
@@ -45,7 +45,7 @@ Skill flutter-wright "logs since=50"
 
 **只要截图?跳过这节。** 你自己 `flutter run` 起 app,截图走 `adb screencap`、热重载在你的 flutter 控制台按 `r`,都不经 SDK。
 
-**要让 AI 看语义树 + 操作元素(`snapshot`/`tap`/`type`/`scroll`/`longPress`/`waitFor`)**,把 SDK 加进 app,核心只需 `await FlutterWright.start(enabled: kDebugMode)` — 无需传 navigatorKey。
+**要让 AI 看语义树 + 操作元素(`snapshot`/`tap`/`type`/`scroll`/`longPress`/`waitFor`)**,把 SDK 加进 app,核心只需 `await FlutterWright.start(enabled: kDebugMode)`,无需传 navigatorKey。
 
 **要让 AI 程序化跳页(`goto`/`reset`)** 才需要在 `start()` 额外传 navigatorKey 或 navigationAdapter。
 
@@ -65,7 +65,7 @@ Skill flutter-wright "logs since=50"
 |  Skill flutter-wright "..."  |              |  ┌────────────────────────────────┐  |
 |         │                   |              |  │  你的 Flutter app                │  |
 |         ▼                   |              |  │                                │  |
-|  bash 脚本 (skills/.../)    |   HTTP/JSON  |  │   flutter_wright_sdk (debug)   │  |
+|  bash 脚本 (skills/.../)    |   HTTP/JSON  |  │ flutter_wright_sdk (enabled)   │  |
 |         │     ──────────────┼──────────────┼─▶│   绑 127.0.0.1:9123             │  |
 |         ▼                   |  via adb     |  │   /navigate /screenshot /...   │  |
 |  adb / curl                 |  forward     |  └────────────────────────────────┘  |
@@ -73,7 +73,7 @@ Skill flutter-wright "logs since=50"
 ```
 
 - **不经 SDK 的方法**(`screenshot`/`setViewport`/`resetViewport`/`pressKey`/`back`/`logs`):截图走 `adb screencap`、视口走 `adb shell wm`、日志走 `adb logcat`;都只需 `adb`。起 app / 热重载是你自己的 `flutter run`(控制台按 `r`),本 skill 不托管进程。
-- **需要 SDK 的方法** — 分两层:
+- **需要 SDK 的方法**,分两层:
   - **交互层**(`snapshot`/`tap`/`type`/`scroll`/`longPress`/`waitFor`/`health`/`targets`):只需 `FlutterWright.start(enabled: kDebugMode)`,无需 navigatorKey。app 在 `enabled` 为真时于注册表 `base`(如 `127.0.0.1:9123`)开 HTTP 服务,bash 脚本经目标注册表解析 `base` + `curl` 把命令发进去(可达性用 `targets forward` 建一次 `adb forward`)。
   - **导航层**(`goto`/`reset`):需要额外传 navigatorKey 或 navigationAdapter。`enabled` 默认 `false` 时 SDK 是 no-op,不绑 socket、不暴露任何东西(由调用方控制,非自动感知构建)。
 
@@ -99,4 +99,4 @@ flutterwright/
 
 ## 许可证
 
-MIT —— 见 [`LICENSE`](LICENSE)。
+MIT,见 [`LICENSE`](LICENSE)。

@@ -4,11 +4,13 @@
 
 ## 通用约定
 
-- **绑定地址**:默认 `127.0.0.1`。**不要**在共享网络里绑 `0.0.0.0` — 控制面没有认证。
+- **启用模型(0.8.0)**:控制面仅在宿主显式 `start(enabled: true)` 时才绑定;`enabled` 默认 `false` → `start()` 直接 no-op(正式包零攻击面)。启用闸门由宿主决定,常见接法 `enabled: kDebugMode` 或 `enabled: AppEnv.isTestBuild`。
+- **绑定地址**:默认 `127.0.0.1`。控制面默认仅靠 loopback 保护;可经 `start(token:)` 启用可选 token 鉴权(token 非空时除 `/health` 外校验 `X-FW-Token` 头,不符回 `401`、常量时间比对;token 为空 = 不鉴权)。无论是否设 token,都**不要**在共享网络里绑 `0.0.0.0`。
 - **Content-Type**:带 body 的请求必须用 `application/json`。JSON 解析失败会被静默当作 `{}`。
 - **响应信封**:
   - 成功:`{"ok": true, ...}` (各 endpoint 额外字段不同)
   - 失败:`{"ok": false, "error": "<原因>"}`,HTTP 4xx/5xx
+- **鉴权**:设了 `start(token:)` 且 token 非空时,除 `GET /health` 外所有端点须带 `X-FW-Token` 头,缺失/错误返回 `401 {"ok": false, "error": "unauthorized: missing or invalid X-FW-Token"}`(常量时间比对);token 为空/未设 = 不鉴权(仅靠 loopback)。
 - **Body 上限**:默认 1 MiB,通过 `FlutterWrightConfig.maxBodyBytes` 配置。超过返回 HTTP 413。
 
 ## GET /health
@@ -17,8 +19,10 @@
 
 **Response 200**
 ```json
-{ "ok": true, "version": "0.7.0", "service": "flutter_wright_sdk" }
+{ "ok": true, "service": "flutter_wright_sdk", "version": "0.8.0", "name": null, "package": null }
 ```
+
+> `name` / `package` 由 `start({appName, package})` 提供(start 参数名 `appName`,响应键名 `name`);未设置时为 JSON `null`,键恒在,用于多目标场景下确认探活的是哪个目标。`/health` 免 token 鉴权。
 
 ## GET /snapshot
 

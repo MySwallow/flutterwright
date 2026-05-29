@@ -1,6 +1,6 @@
 # 集成指南
 
-把 `flutter_wright_sdk` 接入到真实 Flutter app 的详细模式 — 包括 dev_dependencies 范式、不同路由架构(Navigator 1.0 / GoRouter / GetX)、多 flavor。
+把 `flutter_wright_sdk` 接入到真实 Flutter app 的详细模式:dev_dependencies 范式、不同路由架构(Navigator 1.0 / GoRouter / GetX)、多 flavor。
 
 > **让 AI 助手做集成?** 用同名 AI 专用版本 [`integration-guide-for-ai.md`](./integration-guide-for-ai.md) — 指令式 + 决策树 + 检测/验证步骤,AI 不容易在模糊地带走偏。
 
@@ -13,17 +13,17 @@
 | 你想用 | 需要做的 | 对应章节 |
 |---|---|---|
 | adb 截图(导航靠人工) | **无需集成 SDK** —— 你自己 `flutter run` 起 app,需热重载就在控制台按 `r` | — |
-| `snapshot` / `tap` / `type` / `scroll` / `longPress` / `waitFor`(交互闭环) | `await FlutterWright.start();` 即可 —— **无需** navigatorKey | §1 §2 |
-| `goto` / `reset`(命名路由) | `await FlutterWright.start();` 并把 `FlutterWright.navigatorKey` 注入 `MaterialApp(navigatorKey:)` | §1 §2 §3 |
-| `goto`(GoRouter / GetX 等) | `await FlutterWright.start();` 并给 `start()` 传 `CallbackNavigationAdapter` | §1 §2 §5 |
+| `snapshot` / `tap` / `type` / `scroll` / `longPress` / `waitFor`(交互闭环) | `await FlutterWright.start(enabled: kDebugMode);` 即可 —— **无需** navigatorKey | §1 §2 |
+| `goto` / `reset`(命名路由) | `await FlutterWright.start(enabled: kDebugMode);` 并把 `FlutterWright.navigatorKey` 注入 `MaterialApp(navigatorKey:)` | §1 §2 §3 |
+| `goto`(GoRouter / GetX 等) | `await FlutterWright.start(enabled: kDebugMode);` 并给 `start()` 传 `CallbackNavigationAdapter` | §1 §2 §5 |
 | `GET /routes` 让 AI 发现页面 | 传 `routes:`(路由名列表,**纯可选**,不影响 `goto`) | §4 |
 | 纯渲染树截图(不含状态栏) | 用 `FlutterWrightRoot` 包根 | §2 |
 
-> **`FlutterWright.start()` 解锁全套交互(snapshot/tap/type/scroll/longPress/waitFor)**;只有要用 goto/reset 才需要额外传 navigatorKey 或 navigationAdapter。下面各节按这个顺序展开;只接你需要的。
+> **`FlutterWright.start(enabled: kDebugMode)` 解锁全套交互(snapshot/tap/type/scroll/longPress/waitFor)**;只有要用 goto/reset 才需要额外传 navigatorKey 或 navigationAdapter。下面各节按这个顺序展开;只接你需要的。
 
 ## 1. 添加依赖(推荐放 `dev_dependencies`)
 
-这个库只在 debug 自动化时用,**理论上只应进 `dev_dependencies`** —— release 构建根本不会编译它,生产包零残留。前提只有一条:**你的 `lib/` 不要直接 `import` 它**(否则既触发 `depend_on_referenced_packages` lint,语义上也不对)。落地办法见第 2 节的「dev 入口」范式。
+这个库只在 debug 自动化时用,**理论上只应进 `dev_dependencies`**:release 构建不会编译它,生产包零残留。前提只有一条:**你的 `lib/` 不要直接 `import` 它**(否则既触发 `depend_on_referenced_packages` lint,语义上也不对)。落地办法见第 2 节的「dev 入口」范式。
 
 ```yaml
 # your_app/pubspec.yaml
@@ -35,7 +35,7 @@ dev_dependencies:
     # 本地拷贝同理:path: ../flutter-wright/packages/flutter_wright_sdk
 ```
 
-> **图省事**也可以放进 `dependencies`、直接在 `lib/main.dart` 里 import —— 传 `enabled: kDebugMode` 时 release 下为 false → no-op。代价是 SDK 代码仍被编进生产包(大部分会被 tree-shake,但非零残留)。要"生产零残留",用 `dev_dependencies` + dev 入口(下一节)。`packages/example` 就是按 dev_dependencies 范式组织的:`lib/` 对 SDK **零引用**,只有 `dev/` 和 `test/` 引用它。
+> **图省事**也可以放进 `dependencies`、直接在 `lib/main.dart` 里 import:传 `enabled: kDebugMode` 时 release 下为 false → no-op。代价是 SDK 代码仍被编进生产包(大部分会被 tree-shake,但非零残留)。要"生产零残留",用 `dev_dependencies` + dev 入口(下一节)。`packages/example` 就是按 dev_dependencies 范式组织的:`lib/` 对 SDK **零引用**,只有 `dev/` 和 `test/` 引用它。
 
 ## 2. 连接入口
 
@@ -133,7 +133,7 @@ await FlutterWright.start(enabled: kDebugMode, navigatorKey: myKey, routes: AppR
 
 ## 5. 不同路由架构(GoRouter / GetX / 自定义)
 
-不用 Navigator 1.0 命名路由的 app,给 `start()` 传一个 `CallbackNavigationAdapter` —— 你提供两个闭包(怎么跳页、怎么回根),SDK 只管回调,对路由 API 零假设。
+不用 Navigator 1.0 命名路由的 app,给 `start()` 传一个 `CallbackNavigationAdapter`:你提供两个闭包(怎么跳页、怎么回根),SDK 只管回调,对路由 API 零假设。
 
 **GoRouter:**
 ```dart
@@ -175,7 +175,7 @@ await FlutterWright.start(
 );
 runApp(GetMaterialApp(getPages: [...]));
 ```
-`Get.toNamed` 是全局静态调用,连 key 都不用注入 —— GetX 反而是最省事的。
+`Get.toNamed` 是全局静态调用,连 key 都不用注入,GetX 反而最省事。
 
 **auto_route / Beamer / 自定义栈:** 任何"按名字跳页"的栈都行,把跳转塞进 `onNavigate`、回根塞进 `onReset`。可选 `readiness: () => ...` 让 `/navigate` 在路由未就绪时返回 503。
 
@@ -192,6 +192,19 @@ await FlutterWright.start(
 ```
 
 `AppEnv.isTestBuild` 是示意,替换成你 app 里判断「是否调试/QA 包」的表达式;最简单直接用 `kDebugMode`(来自 `package:flutter/foundation.dart`)。正式包让该判断为 `false`(即 `enabled` 默认值)即彻底关闭、零运行时攻击面;profile/QA 包想开就让它为真。
+
+### 加 token 鉴权(profile/QA 包多一层防护)
+
+profile/QA 包(非 loopback)想再多一层防护,给 `start()` 传 `token`:
+
+```dart
+await FlutterWright.start(
+  enabled: kDebugMode,
+  token: const String.fromEnvironment("FW_TOKEN"),
+);
+```
+
+`token` 非空时,除 `GET /health` 外所有端点都要带匹配的 `X-FW-Token` 头,缺失/错误返 `401`(`unauthorized: missing or invalid X-FW-Token`);`token` 为空/`null` 则不鉴权,仅靠 `127.0.0.1` loopback 隔离。`token` 从 env / 本地配置读取,**绝不进仓库**。
 
 ## 7. 跟 CI / golden test 共存
 

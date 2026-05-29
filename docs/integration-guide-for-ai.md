@@ -106,6 +106,7 @@ Future<void> main() async {
   // 若还需要 goto/reset,额外传 navigatorKey 或 navigationAdapter(见 Step 3)
   await FlutterWright.start(
     enabled: kDebugMode,
+    token: const String.fromEnvironment('FW_TOKEN'), // 可选:从 env 读,不进仓库;空/null = 不鉴权(仅 loopback)
     routes: AppRouter.names, // 可选:喂 GET /routes,不影响 goto
   );
   runApp(FlutterWrightRoot(
@@ -129,6 +130,7 @@ Future<void> main() async {
   // 若需要 goto/reset,在 runApp 中注入 FlutterWright.navigatorKey 并按 Step 3 接线
   await FlutterWright.start(
     enabled: kDebugMode,
+    token: const String.fromEnvironment('FW_TOKEN'), // 可选:从 env 读,不进仓库;空/null = 不鉴权(仅 loopback)
     routes: AppRouter.names, // 可选:喂 GET /routes,不影响 goto
   );
   runApp(const MyApp()); // 保留原有 runApp
@@ -288,15 +290,18 @@ flutter run -d <android_device_or_emulator> -t dev/main_dev.dart
 ```bash
 adb forward tcp:9123 tcp:9123
 curl -s http://127.0.0.1:9123/health
-# 期望:{"ok":true,"version":"0.4.0"}
+# 期望:{"ok":true,"service":"flutter_wright_sdk","version":"0.8.0","name":null,"package":null}
 ```
+
+> 若启用了 `token:`,`/routes` 等非 health 端点须带 `-H "X-FW-Token: <token>"`,否则返回 401「unauthorized: missing or invalid X-FW-Token」;`/health` 始终免 token。
 
 ### 6.4 路由可发现
 
 ```bash
 curl -s http://127.0.0.1:9123/routes
 # 若传了 routes: 或 routesProvider:,期望:{"ok":true,"routes":["/","/order/detail", ...]}
-# 若未传,返回 {"ok":true,"routes":[]} 属正常,不是错误
+# 若未传 navigatorKey / navigationAdapter,/routes(连同 /navigate /reset)回 501「navigation not configured」属正常,不是错误
+# 只有传了 adapter 但路由不可枚举时,才返回 {"ok":true,"routes":[]}
 ```
 
 ## 8. 必须避免的常见错误
@@ -343,7 +348,7 @@ curl -s http://127.0.0.1:9123/routes
 验证结果:
   [✓] flutter analyze 0 issues
   [✓] 看到 banner: [flutter_wright_sdk] listening on http://127.0.0.1:9123
-  [✓] GET /health → 200 {"ok":true,"version":"0.4.0"}
+  [✓] GET /health → 200 {"ok":true,"service":"flutter_wright_sdk","version":"0.8.0","name":null,"package":null}
   [✓] GET /routes → 包含 N 条路由
 
 下一步:
@@ -353,4 +358,4 @@ curl -s http://127.0.0.1:9123/routes
 
 ---
 
-**版本对照**:本指引基于 `flutter_wright_sdk 0.7.0`(snapshot-first 交互层 + navigatorKey 可选 + dev_dependencies 范式)。SDK 升级后 API 不兼容时,Step 2-4 的代码片段会跟着改。
+**版本对照**:本指引基于 `flutter_wright_sdk 0.8.0`(enabled 宿主显式控制(默认 false)+ 可选 token 鉴权 + /health 应用身份(service/name/package))。SDK 升级后 API 不兼容时,Step 2-4 的代码片段会跟着改。
