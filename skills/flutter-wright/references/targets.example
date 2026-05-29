@@ -1,0 +1,25 @@
+# flutter-wright 目标注册表（$FW_TARGETS 指向本文件的一份副本）
+#
+# 集成方/operator 必须维护此文件。放在 git 外，token 绝不进仓库。
+# 推荐用脚本录入（token 会留空，需手动补）：
+#   Skill flutter-wright "targets add name=… base=… package=…"
+#
+# 每行一条目：  name|base|token|package|deviceport
+#   name        条目名。SDK 方法用 target=<name> 选它；只有一条时即默认。
+#   base        本地可达地址，必须带端口，如 http://127.0.0.1:9123。
+#   token       可选。留空 = 免鉴权；配了则除 /health 外的 SDK 端点自动带 X-FW-Token。
+#   package     可选。安卓包名；logs 用它精确过滤（否则回退 `-s flutter`）。
+#   deviceport  可选。留空 = 同 base 端口。仅「同机多 app 各占不同本地端口、
+#               转发到各自设备端口」时才显式填。
+#
+# 留空字段用 | 占位；# 开头或空行被忽略。
+
+# --- 最简：单条目、免鉴权、emulator 直连（无需 forward） ---
+dev|http://127.0.0.1:9123||com.acme.app|
+
+# --- 带鉴权：token 在第 3 字段（真实文件里换成实际 token，切勿提交） ---
+# shop-qa|http://127.0.0.1:9123|REPLACE_WITH_TOKEN|com.acme.shop|
+
+# --- 同机多 app：各占不同本地端口，forward 到各自设备端口 ---
+# shop|http://127.0.0.1:9124||com.acme.shop|9123
+# blog|http://127.0.0.1:9125||com.acme.blog|9123

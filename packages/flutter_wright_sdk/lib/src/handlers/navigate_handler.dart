@@ -1,5 +1,6 @@
 import '../logger.dart';
 import '../navigation_adapter.dart';
+import '../semantics_snapshot.dart';
 import 'handler.dart';
 
 class NavigateHandler extends Handler {
@@ -31,7 +32,10 @@ class NavigateHandler extends Handler {
     try {
       await adapter.navigate(route, args: args, popUntilRoot: popUntilRoot);
       vlLog('navigated to $route');
-      await ctx.request.writeOk(<String, Object?>{'route': route});
+      await ctx.request.writeOk(<String, Object?>{
+        'route': route,
+        'snapshot': SemanticsSnapshot.serialize(),
+      });
     } catch (e, st) {
       vlError('navigate failed', e, st);
       await ctx.request.writeError(500, e.toString());

@@ -7,10 +7,18 @@ import 'handlers/handler.dart';
 import 'logger.dart';
 
 class FlutterWrightHttpServer {
-  FlutterWrightHttpServer({required this.config, required this.handlers});
+  FlutterWrightHttpServer({
+    required this.config,
+    required this.handlers,
+    this.token,
+  });
 
   final FlutterWrightConfig config;
   final List<Handler> handlers;
+
+  /// When non-empty, every request except `/health` must carry a matching
+  /// `X-FW-Token` header. Null/empty = no auth (loopback-only protection).
+  final String? token;
 
   HttpServer? _server;
 
@@ -38,6 +46,15 @@ class FlutterWrightHttpServer {
     try {
       final method = req.method.toUpperCase();
       final path = req.uri.path;
+      final t = token;
+      // '/health' exact match: '/health/' is NOT exempt (→ 401, then 404), by design.
+      if (t != null && t.isNotEmpty && path != '/health') {
+        final provided = req.headers.value('x-fw-token') ?? '';
+        if (!_constantTimeEquals(provided, t)) {
+          await req.writeError(401, 'unauthorized: missing or invalid X-FW-Token');
+          return;
+        }
+      }
       final handler = handlers.firstWhere(
         (h) => h.path == path && h.method == method,
         orElse: () => _NotFound(),
@@ -110,4 +127,17 @@ class _NotFound extends Handler {
       'no handler for ${ctx.request.method} ${ctx.request.uri.path}',
     );
   }
+}
+
+/// Constant-time string compare (avoids leaking match progress via timing).
+/// The length check can leak length, which is acceptable for a bearer token.
+bool _constantTimeEquals(String a, String b) {
+  final ab = utf8.encode(a);
+  final bb = utf8.encode(b);
+  if (ab.length != bb.length) return false;
+  var diff = 0;
+  for (var i = 0; i < ab.length; i++) {
+    diff |= ab[i] ^ bb[i];
+  }
+  return diff == 0;
 }

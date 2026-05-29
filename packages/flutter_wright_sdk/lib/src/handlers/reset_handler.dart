@@ -1,5 +1,6 @@
 import '../logger.dart';
 import '../navigation_adapter.dart';
+import '../semantics_snapshot.dart';
 import 'handler.dart';
 
 class ResetHandler extends Handler {
@@ -19,7 +20,9 @@ class ResetHandler extends Handler {
       if (adapter.isReady) {
         await adapter.reset();
       }
-      await ctx.request.writeOk();
+      await ctx.request.writeOk(<String, Object?>{
+        'snapshot': SemanticsSnapshot.serialize(),
+      });
     } catch (e, st) {
       vlError('reset failed', e, st);
       await ctx.request.writeError(500, e.toString());

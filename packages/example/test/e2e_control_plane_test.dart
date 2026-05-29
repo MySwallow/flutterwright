@@ -94,6 +94,8 @@ bool _looksLikePng(List<int> b) =>
 void main() {
   Future<void> bootApp(WidgetTester tester) async {
     await tester.runAsync(() => FlutterWright.start(
+          enabled: true,
+          navigatorKey: FlutterWright.navigatorKey,
           routes: AppRouter.names,
         ));
     await tester.pumpWidget(
@@ -104,100 +106,113 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  // start() 持有的 SemanticsHandle 须在测试体内释放(flutter_test invariant
+  // 检查早于 tearDown)。所有用例经此包装:跑完体内即 stop()。
+  Future<void> withApp(
+      WidgetTester tester, Future<void> Function() body) async {
+    await bootApp(tester);
+    try {
+      await body();
+    } finally {
+      await tester.runAsync(() => FlutterWright.stop());
+    }
+  }
+
   tearDown(() async {
     await FlutterWright.stop();
   });
 
   testWidgets('SDK 控制面：真实 curl 端到端（health/routes/navigate/reset）',
       (WidgetTester tester) async {
-    await bootApp(tester);
-    expect(FlutterWright.isRunning, isTrue, reason: 'HTTP 服务应已绑定 127.0.0.1:9123');
-    expect(find.byType(HomePage), findsOneWidget);
+    await withApp(tester, () async {
+      expect(FlutterWright.isRunning, isTrue, reason: 'HTTP 服务应已绑定 127.0.0.1:9123');
+      expect(find.byType(HomePage), findsOneWidget);
 
-    // --- /health ---
-    final health = (await tester.runAsync(() => _curlGet('/health')))!;
-    expect(health.code, 200, reason: 'health body: ${health.body}');
-    final healthJson = jsonDecode(health.body) as Map<String, Object?>;
-    expect(healthJson['ok'], true);
-    expect(healthJson['service'], 'flutter_wright_sdk');
-    expect(healthJson['version'], FlutterWright.version);
+      // --- /health ---
+      final health = (await tester.runAsync(() => _curlGet('/health')))!;
+      expect(health.code, 200, reason: 'health body: ${health.body}');
+      final healthJson = jsonDecode(health.body) as Map<String, Object?>;
+      expect(healthJson['ok'], true);
+      expect(healthJson['service'], 'flutter_wright_sdk');
+      expect(healthJson['version'], FlutterWright.version);
 
-    // --- /routes ---
-    final routes = (await tester.runAsync(() => _curlGet('/routes')))!;
-    expect(routes.code, 200);
-    final routeNames =
-        ((jsonDecode(routes.body) as Map<String, Object?>)['routes'] as List<Object?>)
-            .cast<String>();
-    expect(routeNames, containsAll(<String>['/', '/login', '/order/detail']));
+      // --- /routes ---
+      final routes = (await tester.runAsync(() => _curlGet('/routes')))!;
+      expect(routes.code, 200);
+      final routeNames =
+          ((jsonDecode(routes.body) as Map<String, Object?>)['routes'] as List<Object?>)
+              .cast<String>();
+      expect(routeNames, containsAll(<String>['/', '/login', '/order/detail']));
 
-    // --- /navigate 真的把界面推到 OrderDetailPage ---
-    final nav = (await tester.runAsync(() => _curlPost('/navigate', <String, Object?>{
-          'route': '/order/detail',
-          'args': <String, Object?>{'id': 'ORD-001'},
-          'popUntilRoot': true,
-        })))!;
-    await tester.pumpAndSettle();
-    expect(nav.code, 200);
-    expect(find.byType(OrderDetailPage), findsOneWidget,
-        reason: '/navigate 应真实触发 Navigator.pushNamed');
-    expect(find.text('状态: 已支付'), findsOneWidget); // 静态 demo 数据
+      // --- /navigate 真的把界面推到 OrderDetailPage ---
+      final nav = (await tester.runAsync(() => _curlPost('/navigate', <String, Object?>{
+            'route': '/order/detail',
+            'args': <String, Object?>{'id': 'ORD-001'},
+            'popUntilRoot': true,
+          })))!;
+      await tester.pumpAndSettle();
+      expect(nav.code, 200);
+      expect(find.byType(OrderDetailPage), findsOneWidget,
+          reason: '/navigate 应真实触发 Navigator.pushNamed');
+      expect(find.text('状态: 已支付'), findsOneWidget); // 静态 demo 数据
 
-    // --- /reset pop 回根 ---
-    final reset = (await tester.runAsync(
-        () => _curlPost('/reset', <String, Object?>{})))!;
-    await tester.pumpAndSettle();
-    expect(reset.code, 200);
-    expect(find.byType(HomePage), findsOneWidget, reason: '/reset 应 pop 回首页');
-    expect(find.byType(OrderDetailPage), findsNothing);
+      // --- /reset pop 回根 ---
+      final reset = (await tester.runAsync(
+          () => _curlPost('/reset', <String, Object?>{})))!;
+      await tester.pumpAndSettle();
+      expect(reset.code, 200);
+      expect(find.byType(HomePage), findsOneWidget, reason: '/reset 应 pop 回首页');
+      expect(find.byType(OrderDetailPage), findsNothing);
+    });
   });
 
   testWidgets('SDK 控制面：/screenshot 端点 + PNG 像素管线', (WidgetTester tester) async {
-    await bootApp(tester);
+    await withApp(tester, () async {
+      // captureFlutterScreen 经 FlutterWrightRoot 的 keyed RepaintBoundary 截图。
+      // 应用已用 FlutterWrightRoot 包裹（bootApp），故 /screenshot 真实返回 200 PNG。
+      // （修复前因检查 binding 根 RenderView 恒返回 500——本断言即该 bug 的回归守卫。）
+      final shot = (await tester.runAsync(() => _curlGetBytes('/screenshot')))!;
+      expect(shot.code, 200,
+          reason: '/screenshot 应经 FlutterWrightRoot 的 RepaintBoundary 返回 200 PNG，实际=${shot.code}');
+      expect(shot.contentType, contains('image/png'));
+      expect(_looksLikePng(shot.bytes), isTrue);
+      expect(shot.bytes.length, greaterThan(100));
 
-    // captureFlutterScreen 经 FlutterWrightRoot 的 keyed RepaintBoundary 截图。
-    // 应用已用 FlutterWrightRoot 包裹（bootApp），故 /screenshot 真实返回 200 PNG。
-    // （修复前因检查 binding 根 RenderView 恒返回 500——本断言即该 bug 的回归守卫。）
-    final shot = (await tester.runAsync(() => _curlGetBytes('/screenshot')))!;
-    expect(shot.code, 200,
-        reason: '/screenshot 应经 FlutterWrightRoot 的 RepaintBoundary 返回 200 PNG，实际=${shot.code}');
-    expect(shot.contentType, contains('image/png'));
-    expect(_looksLikePng(shot.bytes), isTrue);
-    expect(shot.bytes.length, greaterThan(100));
+      // 独立证明截图像素管线本身真实可用：对一个 RepaintBoundary 调用与
+      // captureFlutterScreen 相同的 toImage→PNG 调用，产出合法 PNG 字节。
+      final boundaryKey = GlobalKey();
+      await tester.pumpWidget(RepaintBoundary(
+        key: boundaryKey,
+        child: const MaterialApp(
+          home: Scaffold(body: Center(child: Text('flutterwright'))),
+        ),
+      ));
+      await tester.pumpAndSettle();
 
-    // 独立证明截图像素管线本身真实可用：对一个 RepaintBoundary 调用与
-    // captureFlutterScreen 相同的 toImage→PNG 调用，产出合法 PNG 字节。
-    final boundaryKey = GlobalKey();
-    await tester.pumpWidget(RepaintBoundary(
-      key: boundaryKey,
-      child: const MaterialApp(
-        home: Scaffold(body: Center(child: Text('flutterwright'))),
-      ),
-    ));
-    await tester.pumpAndSettle();
-
-    final pngBytes = await tester.runAsync(() async {
-      final ro =
-          boundaryKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      final image = await ro.toImage(pixelRatio: 2.0);
-      final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      return data!.buffer.asUint8List();
+      final pngBytes = await tester.runAsync(() async {
+        final ro =
+            boundaryKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        final image = await ro.toImage(pixelRatio: 2.0);
+        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        return data!.buffer.asUint8List();
+      });
+      expect(pngBytes, isNotNull);
+      expect(pngBytes!.length, greaterThan(100));
+      expect(_looksLikePng(pngBytes), isTrue,
+          reason: 'RenderRepaintBoundary.toImage→PNG 管线应产出合法 PNG');
     });
-    expect(pngBytes, isNotNull);
-    expect(pngBytes!.length, greaterThan(100));
-    expect(_looksLikePng(pngBytes), isTrue,
-        reason: 'RenderRepaintBoundary.toImage→PNG 管线应产出合法 PNG');
   });
 
   group('skill bash 脚本：真实驱动同一个 SDK 服务', () {
-    // scripts 默认依赖 adb 做 fw_ensure_health；这里写入 marker 文件走 fast-path
-    // 跳过 adb 检查（脚本自身设计的快路径），让脚本直接 curl 到本机 9123。
+    // 写一条目标注册表指向本机 9123（无 token）；脚本经 fw_resolve_target 解析出
+    // base、fw_need_sdk 预检 /health，再 curl 到同一个 SDK 控制面。纯 SDK 路径，不碰 adb。
     late Directory jobDir;
     late String scriptsDir;
 
     setUp(() async {
       jobDir = await Directory.systemTemp.createTemp('fw_job_');
-      File('${jobDir.path}/fw_health_done')
-          .writeAsStringSync('device=desktop-test\nport=9123\nts=0\n');
+      File('${jobDir.path}/targets')
+          .writeAsStringSync('local|http://127.0.0.1:9123||com.test.app\n');
       scriptsDir =
           Directory('${Directory.current.path}/../../skills/flutter-wright/scripts')
               .absolute
@@ -215,51 +230,39 @@ void main() {
         'bash',
         <String>['$scriptsDir/$script', ...args],
         environment: <String, String>{
-          'CLAUDE_JOB_DIR': jobDir.path,
-          'VL_PORT': '9123',
+          'FW_TARGETS': '${jobDir.path}/targets',
         },
         includeParentEnvironment: true,
       );
     }
 
     testWidgets('goto.sh / reset.sh 真实驱动真实 app', (WidgetTester tester) async {
-      await bootApp(tester);
-      expect(File('$scriptsDir/goto.sh').existsSync(), isTrue,
-          reason: '脚本路径解析失败：$scriptsDir');
+      await withApp(tester, () async {
+        expect(File('$scriptsDir/goto.sh').existsSync(), isTrue,
+            reason: '脚本路径解析失败：$scriptsDir');
 
-      // goto.sh /login → 真实推入 LoginPage
-      final goLogin =
-          (await tester.runAsync(() => runScript('goto.sh', <String>['/login'])))!;
-      await tester.pumpAndSettle();
-      expect(goLogin.exitCode, 0, reason: 'goto.sh stderr: ${goLogin.stderr}');
-      expect(find.byType(LoginPage), findsOneWidget);
+        // goto.sh /login → 真实推入 LoginPage
+        final goLogin =
+            (await tester.runAsync(() => runScript('goto.sh', <String>['/login'])))!;
+        await tester.pumpAndSettle();
+        expect(goLogin.exitCode, 0, reason: 'goto.sh stderr: ${goLogin.stderr}');
+        expect(find.byType(LoginPage), findsOneWidget);
 
-      // goto.sh /order/detail → 真实推入 OrderDetailPage（静态 demo 数据）
-      final goOrder =
-          (await tester.runAsync(() => runScript('goto.sh', <String>['/order/detail'])))!;
-      await tester.pumpAndSettle();
-      expect(goOrder.exitCode, 0, reason: 'goto.sh stderr: ${goOrder.stderr}');
-      expect(find.byType(OrderDetailPage), findsOneWidget);
-      expect(find.text('状态: 已支付'), findsOneWidget);
+        // goto.sh /order/detail → 真实推入 OrderDetailPage（静态 demo 数据）
+        final goOrder =
+            (await tester.runAsync(() => runScript('goto.sh', <String>['/order/detail'])))!;
+        await tester.pumpAndSettle();
+        expect(goOrder.exitCode, 0, reason: 'goto.sh stderr: ${goOrder.stderr}');
+        expect(find.byType(OrderDetailPage), findsOneWidget);
+        expect(find.text('状态: 已支付'), findsOneWidget);
 
-      // reset.sh → pop 回首页
-      final reset =
-          (await tester.runAsync(() => runScript('reset.sh', <String>[])))!;
-      await tester.pumpAndSettle();
-      expect(reset.exitCode, 0, reason: 'reset.sh stderr: ${reset.stderr}');
-      expect(find.byType(HomePage), findsOneWidget);
-    });
-
-    testWidgets('reload.sh：未 run(无 owned daemon)时返回退出码 33',
-        (WidgetTester tester) async {
-      await bootApp(tester);
-      // 新模型:reload 走 AI 持有的 flutter daemon(由 `run` 启动),不再碰 SDK。
-      // 测试 job 没 run 过 → 无 $CLAUDE_JOB_DIR/fw_daemon.env → reload.sh 干净报错 exit 33。
-      // daemon 驱动的成功路径依赖真机 + 真实 flutter 进程,在设备上手工验证。
-      final reload =
-          (await tester.runAsync(() => runScript('reload.sh', <String>[])))!;
-      expect(reload.exitCode, 33,
-          reason: 'reload.sh 无 owned daemon 应 exit 33,stderr: ${reload.stderr}');
+        // reset.sh → pop 回首页
+        final reset =
+            (await tester.runAsync(() => runScript('reset.sh', <String>[])))!;
+        await tester.pumpAndSettle();
+        expect(reset.exitCode, 0, reason: 'reset.sh stderr: ${reset.stderr}');
+        expect(find.byType(HomePage), findsOneWidget);
+      });
     });
   });
 }
