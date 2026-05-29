@@ -65,6 +65,8 @@ Skill flutter-wright "snapshot [out=<path>] [target=<name>]"
 
 **Ref 临时性**:只有这一次返回的 ref 才能在后续 `tap`/`type` 里用 —— 页面一变(导航/reload/动作)就重新 `snapshot`,旧 ref 在 SDK 侧标记失效(对应 HTTP 404、脚本退 51)。
 
+**动作回吐的 snapshot 是「动作前同帧」**:`tap`/`goto`/`reset` 等响应里内联的 snapshot 是请求时刻、**界面重建前**的旧帧;导航后**必须**重新 `snapshot` 或用 `waitFor` 取重建后页面(导航刚发生时单跑 `snapshot` 可能短暂拿到旧帧、甚至空语义 `# (no semantics)`)。别用动作自身回吐的 snapshot 判断导航是否成功。
+
 `out=<path>` 可选,把 YAML 落盘到指定路径(也仍打到 stdout)。
 
 示例:`Skill flutter-wright "snapshot"`
@@ -173,7 +175,7 @@ Skill flutter-wright "logs [since=<n>] [grep=<pat>] [target=<name>]"
 Skill flutter-wright "goto <route> [args=<json>] [popUntilRoot=<bool>] [target=<name>]"
 ```
 
-跳转到 `<route>`。`args` 是任意 JSON 值,作为路由参数传入。`popUntilRoot` 默认 `true`(先回到根)。
+跳转到 `<route>`。`args` 是任意 JSON 值,作为路由参数传入。`popUntilRoot` 默认 `true`(先回到根)——注意这会**改变返回栈语义**:从根 push 目标页后,宿主「返回」会回到根而非上一逻辑页;若要「跳走再返回到原页」,显式传 `popUntilRoot=false` 保栈。
 
 **路由无需预先注册**;能否跳成功取决于宿主路由器认不认。**需要宿主在 `FlutterWright.start()` 时传 `navigatorKey` 或 `navigationAdapter`**;0.7.0 起未配置时这端点回 501、脚本退 41。
 
@@ -214,4 +216,4 @@ Skill flutter-wright "resetViewport"
 
 示例:`Skill flutter-wright "setViewport 1080 2400 480"`
 
-退出码:setViewport 0 / 60 缺参 / 61 覆盖被拒(回读不一致);resetViewport 恒 0。
+退出码:setViewport 0 / 60 缺参 / 61 覆盖被拒(回读不一致,常见于设备钳制请求尺寸,如模拟器把高度钳到上限)。**退 61 时尺寸/密度覆盖可能已部分生效、且已记录原值**,因此**仍须调 `resetViewport` 复位**(用同一 `CLAUDE_JOB_DIR`),别因为"失败了"就跳过清理。resetViewport 恒 0。

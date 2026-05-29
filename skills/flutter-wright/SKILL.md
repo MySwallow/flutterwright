@@ -66,11 +66,12 @@ Skill flutter-wright "targets add name=shop-qa base=http://127.0.0.1:9123 packag
 像 Playwright 一样:**先 `snapshot` 拿 `ref`,再用 `ref` 去操作。**
 
 - `ref`(`sN`,N 为 `SemanticsNode.id`)**临时**:只有最近一次 `snapshot` 发出过的能用,页面一变(导航/热重载/动作)就重新 `snapshot`,旧 ref 失效(端点回 404、脚本退 51)。
-- `tap`/`type`/`scroll`/`longPress` 成功后**自动回吐**最新 snapshot 到 stdout,通常无需手动再 `snapshot`。
+- `tap`/`type`/`scroll`/`longPress` 成功后**自动回吐** snapshot 到 stdout——但**导航类动作(`goto`/`reset`,或会触发跳转的 `tap`)回吐的是重建前的旧帧**(界面下一帧才重建),别拿它当导航结果;导航后改用 `waitFor` 或重新 `snapshot` 确认(刚导航时单跑 `snapshot` 可能短暂返回旧帧甚至空语义)。非导航动作的回吐通常可直接用。
 - 调用形式 **element + ref 双参**:`tap "<element 描述>" ref=<ref>` —— `<element>` 仅作日志/可读性,定位以 `ref` 为准。
 - 导航类动作(`goto`/`reset`)界面若下一帧才重建,用 `waitFor` 做确定性同步,而不是猜延时。
-- 路由**无需预先注册**:`goto` 直接把路由名交给宿主路由器,能否跳成功取决于它认不认。
+- 路由**无需预先注册**:`goto` 直接把路由名交给宿主路由器,能否跳成功取决于它认不认。**意在程序化跳某个路由页时优先用 `goto`,即便当前页恰有个文案=路由名的按钮**——tap 那种按钮只是巧合等价,多数真实页面没有。
 - `screenshot` 只用来**看效果**,不拿来定位(定位永远靠 `snapshot` 的 ref);同一 label 多个节点 / ref 失效时,重新 `snapshot` 用最新 ref。
+- **缺必填信息别硬来**:用户没给的关键值(账号/密码/搜索词等)先向用户确认,或显式用占位符并说明,**不要编造**;也**不要据弱信号断言成功**(如"离开了登录页"≠"登录成功"——可能只是 pop 返回)。
 
 ## 端到端示例(交互闭环)
 
